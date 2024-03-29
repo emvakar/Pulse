@@ -7,29 +7,36 @@ import SwiftUI
 #if os(iOS)
 import UIKit
 
-struct ShareView: UIViewControllerRepresentable {
+public struct ShareView: UIViewControllerRepresentable {
     var activityItems: [Any]
     var applicationActivities: [UIActivity]?
     private let cleanup: () -> Void
     private var completion: (() -> Void)?
 
-    init(activityItems: [Any]) {
+    public init(activityItems: [Any]) {
         self.activityItems = activityItems
         self.cleanup = {}
     }
 
-    init(_ items: ShareItems) {
+    public init(_ items: ShareItems) {
         self.activityItems = items.items
         self.cleanup = items.cleanup
     }
 
-    func onCompletion(_ completion: @escaping () -> Void) -> Self {
+    public func onCompletion(_ completion: @escaping () -> Void) -> Self {
         var copy = self
         copy.completion = completion
         return copy
     }
 
-    func makeUIViewController(context: UIViewControllerRepresentableContext<ShareView>) -> UIActivityViewController {
+    public func presentOnViewController(_ vc: UIViewController) {
+        let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+        vc.present(controller, animated: true) {
+            cleanup()
+        }
+    }
+
+    public func makeUIViewController(context: UIViewControllerRepresentableContext<ShareView>) -> UIActivityViewController {
         let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
         controller.completionWithItemsHandler = { _, _, _, _ in
             cleanup()
@@ -38,7 +45,8 @@ struct ShareView: UIViewControllerRepresentable {
         return controller
     }
 
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: UIViewControllerRepresentableContext<ShareView>) {
+    public func updateUIViewController(_ uiViewController: UIActivityViewController, context: UIViewControllerRepresentableContext<ShareView>) {
+        
     }
 }
 #endif
