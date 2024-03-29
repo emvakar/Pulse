@@ -9,7 +9,7 @@ import CoreData
 public enum ShareStoreOutput: String, RawRepresentable {
     case store, package, text, html, har
 
-    var fileExtension: String {
+    public var fileExtension: String {
         switch self {
         case .store, .package: return "pulse"
         case .text: return "txt"
@@ -19,23 +19,23 @@ public enum ShareStoreOutput: String, RawRepresentable {
     }
 }
 
-struct ShareItems: Identifiable {
-    let id = UUID()
-    let items: [Any]
-    let size: Int64?
-    let cleanup: () -> Void
+public struct ShareItems: Identifiable {
+    public let id = UUID()
+    public let items: [Any]
+    public let size: Int64?
+    public let cleanup: () -> Void
 
-    init(_ items: [Any], size: Int64? = nil, cleanup: @escaping () -> Void = { }) {
+    public init(_ items: [Any], size: Int64? = nil, cleanup: @escaping () -> Void = { }) {
         self.items = items
         self.size = size
         self.cleanup = cleanup
     }
 }
 
-enum ShareService {
+public enum ShareService {
     private static var task: ShareStoreTask?
 
-    static func share(_ entities: [NSManagedObject], store: LoggerStore, as output: ShareOutput) async throws -> ShareItems {
+    public static func share(_ entities: [NSManagedObject], store: LoggerStore, as output: ShareOutput) async throws -> ShareItems {
         try await withUnsafeThrowingContinuation { continuation in
             ShareStoreTask(entities: entities, store: store, output: output) {
                 if let value = $0 {
@@ -112,7 +112,7 @@ enum ShareService {
     }
 }
 
-enum ShareOutput {
+public enum ShareOutput {
     case plainText
     case html
     case pdf
@@ -128,17 +128,18 @@ enum ShareOutput {
     }
 }
 
-struct TemporaryDirectory {
-    let url: URL
+public struct TemporaryDirectory {
 
-    init() {
+    public let url: URL
+
+    public init() {
         url = FileManager.default.temporaryDirectory
             .appendingPathComponent("com.github.kean.logger", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
     }
 
-    func remove() {
+    public func remove() {
         try? FileManager.default.removeItem(at: url)
     }
 }
