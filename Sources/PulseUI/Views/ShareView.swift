@@ -30,9 +30,11 @@ public struct ShareView: UIViewControllerRepresentable {
     }
 
     public func presentOnViewController(_ vc: UIViewController) {
-        let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
-        vc.present(controller, animated: true) {
-            cleanup()
+        DispatchQueue.main.async {
+            let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+            vc.present(controller, animated: true) {
+                cleanup()
+            }
         }
     }
 
