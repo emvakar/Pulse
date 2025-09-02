@@ -1,18 +1,24 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 
-struct KeyValueSectionViewModel {
-    var title: String
-    var color: Color
-    var items: [(String, String?)] = []
+package struct KeyValueSectionViewModel {
+    package var title: String
+    package var color: Color
+    package var items: [(String, String?)] = []
+
+    package init(title: String, color: Color, items: [(String, String?)]) {
+        self.title = title
+        self.color = color
+        self.items = items
+    }
 }
 
 extension KeyValueSectionViewModel {
-    static func makeParameters(for request: NetworkRequestEntity) -> KeyValueSectionViewModel {
+    package static func makeParameters(for request: NetworkRequestEntity) -> KeyValueSectionViewModel {
         var items: [(String, String?)] = [
             ("Cache Policy", request.cachePolicy.description),
             ("Timeout Interval", DurationFormatter.string(from: TimeInterval(request.timeoutInterval), isPrecise: false))
@@ -33,26 +39,32 @@ extension KeyValueSectionViewModel {
         if request.httpShouldUsePipelining {
             items.append(("HTTP Should Use Pipelining", request.httpShouldUsePipelining.description))
         }
-        if #available(iOS 15, *) {
+        if #available(iOS 16, *) {
             return KeyValueSectionViewModel(title: "Options", color: .indigo, items: items)
         } else {
             return KeyValueSectionViewModel(title: "Options", color: .purple, items: items)
         }
     }
 
-    static func makeTaskDetails(for task: NetworkTaskEntity) -> KeyValueSectionViewModel {
+    package static func makeTaskDetails(for task: NetworkTaskEntity) -> KeyValueSectionViewModel {
         func format(size: Int64) -> String {
             size > 0 ? ByteCountFormatter.string(fromByteCount: size) : "Empty"
         }
         let taskType = task.type?.urlSessionTaskClassName ?? "URLSessionDataTask"
-        return KeyValueSectionViewModel(title: taskType, color: .primary, items: [
+        var items: [(String, String?)] = [
             ("Host", task.url.flatMap(URL.init)?.host),
-            ("Date", task.startDate.map(DateFormatter.fullDateFormatter.string)),
-            ("Duration", task.duration > 0 ? DurationFormatter.string(from: task.duration) : nil)
-        ])
+            ("Date", task.startDate.map(DateFormatter.fullDateFormatter.string))
+        ]
+        if task.duration > 0 {
+            items.append(("Duration", DurationFormatter.string(from: task.duration)))
+        }
+        if let description = task.taskDescription, !description.isEmpty {
+            items.append(("Description", description))
+        }
+        return KeyValueSectionViewModel(title: taskType, color: .primary, items: items)
     }
 
-    static func makeComponents(for url: URL) -> KeyValueSectionViewModel? {
+    package static func makeComponents(for url: URL) -> KeyValueSectionViewModel? {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             return nil
         }
@@ -71,7 +83,7 @@ extension KeyValueSectionViewModel {
             ].filter { $0.1?.isEmpty == false })
     }
 
-    static func makeHeaders(title: String, headers: [String: String]?) -> KeyValueSectionViewModel {
+    package static func makeHeaders(title: String, headers: [String: String]?) -> KeyValueSectionViewModel {
         KeyValueSectionViewModel(
             title: title,
             color: .red,
@@ -82,7 +94,7 @@ extension KeyValueSectionViewModel {
         )
     }
 
-    static func makeErrorDetails(for task: NetworkTaskEntity) -> KeyValueSectionViewModel? {
+    package static func makeErrorDetails(for task: NetworkTaskEntity) -> KeyValueSectionViewModel? {
         guard task.errorCode != 0, task.state == .failure else {
             return nil
         }
@@ -103,7 +115,7 @@ extension KeyValueSectionViewModel {
         return "\(code) (\(descriptionForURLErrorCode(Int(code))))"
     }
 
-    static func makeQueryItems(for url: URL) -> KeyValueSectionViewModel? {
+    package static func makeQueryItems(for url: URL) -> KeyValueSectionViewModel? {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let queryItems = components.queryItems,
               !queryItems.isEmpty else {
@@ -112,7 +124,7 @@ extension KeyValueSectionViewModel {
         return makeQueryItems(for: queryItems)
     }
 
-    static func makeQueryItems(for queryItems: [URLQueryItem]) -> KeyValueSectionViewModel? {
+    package static func makeQueryItems(for queryItems: [URLQueryItem]) -> KeyValueSectionViewModel? {
         KeyValueSectionViewModel(
             title: "Query",
             color: .purple,
@@ -120,7 +132,7 @@ extension KeyValueSectionViewModel {
         )
     }
 
-    static func makeDetails(for transaction: NetworkTransactionMetricsEntity) -> [KeyValueSectionViewModel] {
+    package static func makeDetails(for transaction: NetworkTransactionMetricsEntity) -> [KeyValueSectionViewModel] {
         return [
             makeTiming(for: transaction),
             makeTransferSection(for: transaction),
@@ -214,7 +226,7 @@ extension KeyValueSectionViewModel {
         ])
     }
 
-    static func makeDetails(for cookie: HTTPCookie, color: Color) -> KeyValueSectionViewModel {
+    package static func makeDetails(for cookie: HTTPCookie, color: Color) -> KeyValueSectionViewModel {
         KeyValueSectionViewModel(title: cookie.name, color: color, items: [
             ("Name", cookie.name),
             ("Value", cookie.value),
@@ -231,4 +243,3 @@ extension KeyValueSectionViewModel {
 private func formatBytes(_ count: Int64) -> String {
     ByteCountFormatter.string(fromByteCount: count)
 }
-

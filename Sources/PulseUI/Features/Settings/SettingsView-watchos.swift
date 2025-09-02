@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 #if os(watchOS)
 
@@ -10,7 +10,6 @@ import Pulse
 public struct SettingsView: View {
     private let store: LoggerStore
 
-    @StateObject private var syncService: WatchConnectivityService = .shared
     @State private var isShowingShareView = false
 
     public init(store: LoggerStore = .shared) {
@@ -20,7 +19,8 @@ public struct SettingsView: View {
     public var body: some View {
         Form {
             Section {
-                if store === RemoteLogger.shared.store {
+                if !UserSettings.shared.isRemoteLoggingHidden,
+                   store === RemoteLogger.shared.store {
 #if targetEnvironment(simulator)
                     RemoteLoggerSettingsView(viewModel: .shared)
 #else
@@ -33,17 +33,7 @@ public struct SettingsView: View {
                 }
             }
             Section {
-                Button(action: { syncService.share(store: store) }) {
-                    Text(syncService.state.title)
-                }
-                .disabled(syncService.isButtonDisabled)
-                .alert(item: $syncService.error) { error in
-                    Alert(title: Text("Transfer Failed"), message: Text(error.error.localizedDescription), dismissButton: .cancel(Text("Ok")))
-                }
-                
-                if #available(watchOS 9, *) {
-                    Button("Share Store") { isShowingShareView = true }
-                }
+                Button("Share Store") { isShowingShareView = true }
             }
             Section {
                 NavigationLink(destination: StoreDetailsView(source: .store(store))) {
@@ -58,11 +48,9 @@ public struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .sheet(isPresented: $isShowingShareView) {
-            if #available(watchOS 9, *) {
-                NavigationView {
-                    ShareStoreView() {
-                        isShowingShareView = false
-                    }
+            NavigationView {
+                ShareStoreView {
+                    isShowingShareView = false
                 }
             }
         }

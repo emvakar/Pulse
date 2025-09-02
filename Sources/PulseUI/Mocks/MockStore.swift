@@ -1,23 +1,23 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import Foundation
 import Pulse
 import CoreData
 
-#if DEBUG || PULSE_MOCK_INCLUDED
+#if DEBUG || STANDALONE_PULSE_APP
 
 extension LoggerStore {
-    static let mock: LoggerStore = {
+    package static let mock: LoggerStore = {
         let store = makeMockStore()
         _syncPopulateStore(store)
         return store
     }()
 
-    static let preview = makeMockStore()
+    package static let preview = makeMockStore()
 
-    func populate() {
+    package func populate() {
         _syncPopulateStore(self)
     }
 }
@@ -80,9 +80,11 @@ private func _asyncPopulateStore(_ store: LoggerStore) async {
         Logger(label: named, store: store)
     }
 
-    let networkLogger = NetworkLogger(store: store) {
-        $0.isWaitingForDecoding = true
-    }
+    let networkLogger = NetworkLogger(store: store, configuration: {
+        var configuration = NetworkLogger.Configuration()
+        configuration.isWaitingForDecoding = true
+        return configuration
+    }())
 
     let urlSession = URLSession(configuration: .default)
 
@@ -149,26 +151,28 @@ private func _syncPopulateStore(_ store: LoggerStore) {
         Logger(label: named, store: store)
     }
 
-    let networkLogger = NetworkLogger(store: store) {
-        $0.isWaitingForDecoding = true
-    }
+    let networkLogger = NetworkLogger(store: store, configuration: {
+        var configuration = NetworkLogger.Configuration()
+        configuration.isWaitingForDecoding = true
+        return configuration
+    }())
 
     let urlSession = URLSession(configuration: .default)
-    
+
     logger(named: "application")
         .log(level: .info, "UIApplication.didFinishLaunching", metadata: [
             "custom-metadata-key": .string("value")
         ])
-    
+
     logger(named: "application")
         .log(level: .info, "UIApplication.willEnterForeground")
-    
+
     logger(named: "session")
         .log(level: .trace, "Instantiated Session")
 
     logger(named: "auth")
         .log(level: .trace, "Instantiated the new login request")
-    
+
     logger(named: "analytics")
         .log(level: .debug, "Will navigate to Dashboard")
 
@@ -227,7 +231,7 @@ private func _logTask(_ mockTask: MockTask, urlSession: URLSession, logger: Netw
         if let dataTask = task as? URLSessionDataTask {
             logger.logDataTask(dataTask, didReceive: mockTask.responseBody)
         }
-        
+
         let taskInterval = DateInterval(start: startDate, duration: mockTask.duration)
         let metrics = makeMetrics(for: mockTask, taskInterval: taskInterval)
         logger.logTask(task, didFinishCollecting: metrics)
@@ -267,6 +271,7 @@ private func makeSessionTask(for mockTask: MockTask, urlSession: URLSession) -> 
     }
     task.setValue(mockTask.currentRequest, forKey: "currentRequest")
     task.setValue(mockTask.response, forKey: "response")
+    task.taskDescription = mockTask.taskDescription
     return task
 }
 
@@ -344,7 +349,7 @@ private func makeMetrics(for task: MockTask, taskInterval: DateInterval) -> Netw
         let statusCode = (transaction.response as? HTTPURLResponse)?.statusCode
 
         var transferSize = NetworkLogger.TransferSizeInfo()
-        if transaction.fetchType == .networkLoad  {
+        if transaction.fetchType == .networkLoad {
             transferSize.requestHeaderBytesSent = getHeadersEstimatedSize(requestHeaders)
             transferSize.responseHeaderBytesReceived = getHeadersEstimatedSize(responseHeaders)
             if index == task.transactions.endIndex - 1 && statusCode != 304 {
@@ -391,11 +396,11 @@ private func getHeadersEstimatedSize(_ headers: [String: String]?) -> Int64 {
 }
 
 extension LoggerStore {
-    func entity(for task: MockTask) -> NetworkTaskEntity {
+    package func entity(for task: MockTask) -> NetworkTaskEntity {
         var configuration = NetworkLogger.Configuration()
         configuration.isWaitingForDecoding = true
         _logTask(task, urlSession: URLSession.shared, logger: NetworkLogger(store: self, configuration: configuration))
-        let task = (try! allTasks()).first { $0.url == task.originalRequest.url?.absoluteString }
+        let task = (try! tasks()).first { $0.url == task.originalRequest.url?.absoluteString }
         assert(task != nil)
         return task!
     }

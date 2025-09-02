@@ -1,13 +1,19 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
+
+#if !os(watchOS)
 
 import SwiftUI
 
-struct TimingView: View {
-    let viewModel: TimingViewModel
+package struct TimingView: View {
+    package let viewModel: TimingViewModel
 
-    var body: some View {
+    package init(viewModel: TimingViewModel) {
+        self.viewModel = viewModel
+    }
+
+    package var body: some View {
 #if os(tvOS)
         ForEach(viewModel.sections) { item in
             Section {
@@ -34,7 +40,11 @@ private struct TimingSectionView: View {
         VStack(spacing: 6) {
             HStack {
                 Text(viewModel.title)
+#if os(macOS)
+                    .font(.headline)
+#else
                     .font(.subheadline)
+#endif
                     .lineLimit(1)
                     .foregroundColor(viewModel.isHeader ? .secondary : .primary)
                 Spacer()
@@ -63,7 +73,7 @@ private struct TimingRowView: View {
     let spacing: CGFloat = 12
 #endif
 
-    @Environment(\.sizeCategory) var sizeCategory
+    @ScaledMetric(relativeTo: .body) private var sizeMultiplier = 1.0
 
     var body: some View {
         HStack(alignment: .center, spacing: spacing) {
@@ -87,42 +97,50 @@ private struct TimingRowView: View {
         GeometryReader { proxy in
             let start = max(0, min(1, viewModel.start))
             let length = min(1 - start, viewModel.length)
-            RoundedRectangle(cornerRadius: 2 * sizeCategory.scale)
+            RoundedRectangle(cornerRadius: 2 * sizeMultiplier)
                 .fill(Color(viewModel.color))
                 .frame(width: max(2, proxy.size.width * length))
                 .padding(.leading, proxy.size.width * start)
         }
-        .frame(height: barHeight * sizeCategory.scale)
+        .frame(height: barHeight * sizeMultiplier)
 
     }
 
     private func makeTitle(_ text: String) -> some View {
         Text(text)
+#if os(macOS)
+            .font(.subheadline)
+#else
             .font(.footnote)
+#endif
             .lineLimit(1)
             .foregroundColor(.secondary)
     }
 
     private func makeValue(_ text: String) -> some View {
         Text(text)
+#if os(macOS)
+            .font(.system(.subheadline, design: .monospaced))
+#else
             .font(.system(.caption, design: .monospaced))
+#endif
             .lineLimit(1)
             .foregroundColor(.secondary)
     }
 }
 
-final class TimingViewModel {
-    let sections: [TimingRowSectionViewModel]
+package final class TimingViewModel {
+    package let sections: [TimingRowSectionViewModel]
 
-    init(sections: [TimingRowSectionViewModel]) {
+    package init(sections: [TimingRowSectionViewModel]) {
         self.sections = sections
     }
 
-    private(set) lazy var longestTitle: String = {
+    private(set) package lazy var longestTitle: String = {
         allRows.map(\.title).max { $0.count < $1.count } ?? ""
     }()
 
-    private(set) lazy var longestValue: String = {
+    private(set) package lazy var longestValue: String = {
         allRows.map(\.value).max { $0.count < $1.count } ?? ""
     }()
 
@@ -131,32 +149,32 @@ final class TimingViewModel {
     }
 }
 
-final class TimingRowSectionViewModel: Identifiable {
-    let title: String
-    let items: [TimingRowViewModel]
-    var isHeader = false
+package final class TimingRowSectionViewModel: Identifiable {
+    package let title: String
+    package let items: [TimingRowViewModel]
+    package var isHeader = false
 
-    var id: ObjectIdentifier { ObjectIdentifier(self) }
+    package var id: ObjectIdentifier { ObjectIdentifier(self) }
 
-    init(title: String, items: [TimingRowViewModel], isHeader: Bool = false) {
+    package init(title: String, items: [TimingRowViewModel], isHeader: Bool = false) {
         self.title = title
         self.items = items
         self.isHeader = isHeader
     }
 }
 
-final class TimingRowViewModel: Identifiable {
-    let title: String
-    let value: String
-    let color: UXColor
+package final class TimingRowViewModel: Identifiable {
+    package let title: String
+    package let value: String
+    package let color: UXColor
     // [0, 1]
-    let start: CGFloat
+    package let start: CGFloat
     // [0, 1]
-    let length: CGFloat
+    package let length: CGFloat
 
-    var id: ObjectIdentifier { ObjectIdentifier(self) }
+    package var id: ObjectIdentifier { ObjectIdentifier(self) }
 
-    init(title: String, value: String, color: UXColor, start: CGFloat, length: CGFloat) {
+    package init(title: String, value: String, color: UXColor, start: CGFloat, length: CGFloat) {
         self.title = title
         self.value = value
         self.color = color
@@ -189,4 +207,6 @@ private let mockSections = [
         TimingRowViewModel(title: "Download", value: "30.0ms", color: .systemGreen, start: 0.75, length: 100.0)
     ])
 ]
+#endif
+
 #endif

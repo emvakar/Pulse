@@ -1,8 +1,8 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
-#if os(iOS) || os(macOS) || os(watchOS)
+#if os(iOS) || os(macOS) || os(watchOS) || os(visionOS)
 
 import SwiftUI
 import CoreData
@@ -13,16 +13,28 @@ import Combine
     // Sharing options
     @Published var sessions: Set<UUID> = []
     @Published var logLevels = Set(LoggerStore.Level.allCases)
+    let shareStoreOutputs: [ShareStoreOutput]
     @Published var output: ShareStoreOutput
 
     @Published private(set) var isPreparingForSharing = false
     @Published private(set) var errorMessage: String?
     @Published var shareItems: ShareItems?
 
+    @ObservedObject private var settings: UserSettings = .shared
+
     var store: LoggerStore?
 
     init() {
-        output = UserSettings.shared.sharingOutput
+        var outputs = UserSettings.shared.allowedShareStoreOutputs
+        if outputs.isEmpty {
+            outputs = ShareStoreOutput.allCases
+        }
+        if outputs.contains(UserSettings.shared.sharingOutput) {
+            output = UserSettings.shared.sharingOutput
+        } else {
+            output = outputs[0]
+        }
+        shareStoreOutputs = outputs
     }
 
     func buttonSharedTapped() {
@@ -85,9 +97,7 @@ import Combine
     private func prepareForSharing(store: LoggerStore, options: LoggerStore.ExportOptions) async throws -> ShareItems {
         switch output {
         case .store:
-            return try await prepareStoreForSharing(store: store, as: .archive, options: options)
-        case .package:
-            return try await prepareStoreForSharing(store: store, as: .package, options: options)
+            return try await prepareStoreForSharing(store: store, options: options)
         case .text, .html:
             let output: ShareOutput = output == .text ? .plainText : .html
             return try await prepareForSharing(store: store, output: output, options: options)
@@ -96,11 +106,11 @@ import Combine
         }
     }
 
-    private func prepareStoreForSharing(store: LoggerStore, as docType: LoggerStore.DocumentType, options: LoggerStore.ExportOptions) async throws -> ShareItems {
+    private func prepareStoreForSharing(store: LoggerStore, options: LoggerStore.ExportOptions) async throws -> ShareItems {
         let directory = TemporaryDirectory()
 
         let logsURL = directory.url.appendingPathComponent("logs-\(makeCurrentDate()).\(output.fileExtension)")
-        try await store.export(to: logsURL, as: docType, options: options)
+        try await store.export(to: logsURL, options: options)
         return ShareItems([logsURL], cleanup: directory.remove)
     }
 
@@ -109,6 +119,10 @@ import Combine
             store.backgroundContext.perform {
                 let request = NSFetchRequest<LoggerMessageEntity>(entityName: "\(LoggerMessageEntity.self)")
                 request.predicate = options.predicate // important: contains sessions
+
+                let sortDescriptor = NSSortDescriptor(key: "createdAt", ascending: true)
+                request.sortDescriptors = [sortDescriptor]
+
                 let result = Result(catching: { try store.backgroundContext.fetch(request) })
                 continuation.resume(with: result)
             }

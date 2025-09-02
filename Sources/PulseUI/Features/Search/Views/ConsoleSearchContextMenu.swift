@@ -1,15 +1,15 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
-#if os(iOS)
+#if os(iOS) || os(visionOS) || os(macOS)
 
 import SwiftUI
 import CoreData
 import Pulse
 import Combine
 
-@available(iOS 15, *)
+@available(iOS 16, visionOS 1, *)
 struct ConsoleSearchContextMenu: View {
     @EnvironmentObject private var viewModel: ConsoleSearchViewModel
 

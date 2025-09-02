@@ -1,12 +1,16 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 
-struct ConsoleSearchLogLevelsCell: View {
-    @Binding var selection: Set<LoggerStore.Level>
+package struct ConsoleSearchLogLevelsCell: View {
+    @Binding package  var selection: Set<LoggerStore.Level>
+
+    package init(selection: Binding<Set<LoggerStore.Level>>) {
+        self._selection = selection
+    }
 
     var isAllSelected: Bool {
         selection.count == LoggerStore.Level.allCases.count
@@ -33,7 +37,7 @@ struct ConsoleSearchLogLevelsCell: View {
     }
 
 #if os(macOS)
-    var body: some View {
+    package var body: some View {
         VStack(alignment: .leading, spacing: -16) {
             HStack {
                 Spacer()
@@ -57,12 +61,12 @@ struct ConsoleSearchLogLevelsCell: View {
         }
     }
 #else
-    var body: some View {
+    package var body: some View {
         Section {
             ForEach(LoggerStore.Level.allCases, id: \.self) { level in
                 HStack {
                     Checkbox(level.name.capitalized, isOn: binding(forLevel: level))
-#if os(iOS)
+#if os(iOS) || os(visionOS)
                     Circle()
                         .frame(width: 8, height: 8)
                         .foregroundColor(Color.textColor(for: level))

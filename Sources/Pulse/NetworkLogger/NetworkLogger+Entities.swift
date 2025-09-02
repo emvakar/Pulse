@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import Foundation
 
@@ -39,7 +39,7 @@ extension NetworkLogger {
                 if request.httpShouldHandleCookies { insert(.httpShouldHandleCookies) }
                 if request.httpShouldUsePipelining { insert(.httpShouldUsePipelining) }
             }
-            
+
             init(_ entity: NetworkRequestEntity) {
                 self = []
                 if entity.allowsCellularAccess { insert(.allowsCellularAccess) }
@@ -58,7 +58,7 @@ extension NetworkLogger {
             self.timeout = urlRequest.timeoutInterval
             self.options = Options(urlRequest)
         }
-        
+
         init(_ entity: NetworkRequestEntity) {
             self.url = entity.url.flatMap(URL.init)
             self.httpMethod = entity.httpMethod
@@ -87,7 +87,7 @@ extension NetworkLogger {
             self.statusCode = httpResponse?.statusCode
             self.headers = httpResponse?.allHeaderFields as? [String: String]
         }
-        
+
         init(_ entity: NetworkResponseEntity) {
             self.statusCode = Int(entity.statusCode)
             self.headers = entity.headers
@@ -291,7 +291,7 @@ extension NetworkLogger {
                 if metrics.isConstrained { insert(.isConstrained) }
                 if metrics.isMultipath { insert(.isMultipath) }
             }
-            
+
             init(_ entity: NetworkTransactionMetricsEntity) {
                 self = []
                 if entity.isProxyConnection { insert(.isProxyConnection) }
@@ -302,7 +302,7 @@ extension NetworkLogger {
                 if entity.isMultipath { insert(.isMultipath) }
             }
         }
-        
+
         init(_ entity: NetworkTransactionMetricsEntity) {
             self.request = NetworkLogger.Request(entity.request)
             self.response = entity.response.map(NetworkLogger.Response.init)
@@ -514,7 +514,8 @@ extension NetworkLogger {
             self.rawValue = rawValue
         }
 
-        public static let any = ContentType(rawValue: "*/*")!
+        public static var any: ContentType { _any.value }
+        static let _any = Mutex(ContentType(rawValue: "*/*")!)
 
         public init(stringLiteral value: String) {
             self = ContentType(rawValue: value) ?? .any
@@ -525,6 +526,10 @@ extension NetworkLogger {
         public var isImage: Bool { type.hasPrefix("image/") }
         public var isHTML: Bool { type.contains("html") }
         public var isEncodedForm: Bool { type == "application/x-www-form-urlencoded" }
+
+        public var lastComponent: String {
+            type.components(separatedBy: "/").last ?? type
+        }
     }
 }
 

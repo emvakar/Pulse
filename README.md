@@ -1,4 +1,4 @@
-<img width="2100" alt="promo-main" src="https://github.com/kean/Pulse/assets/1567433/d8d588db-e165-4beb-9aec-c4a93e59ba29">
+<img width="1440" alt="promo-1" src="https://github.com/user-attachments/assets/d36bbbb7-e884-4f96-8883-10789664cc52">
 
 <br/>
 <br/>
@@ -31,10 +31,10 @@ The best way to start using Pulse is with the [**Getting Started**](https://kean
 
 ## Minimum Requirements
 
-| Pulse      | Swift     | Xcode       | Platforms                                    |
-|------------|-----------|-------------|----------------------------------------------|
-| Pulse 4.0  | Swift 5.7 | Xcode 14.1  | iOS 14.0, tvOS 15.0, watchOS 8.0, macOS 12.0 |
-| Pulse 3.0  | Swift 5.7 | Xcode 14.1  | iOS 14.0, tvOS 14.0, watchOS 8.0, macOS 12.0 |
+| Pulse      | Swift      | Xcode       | Platforms                                        |
+|------------|------------|-------------|--------------------------------------------------|
+| Pulse 5.0  | Swift 5.10 | Xcode 15.4  | iOS 15, tvOS 15, watchOS 8, macOS 12, visionOS 1 |
+| Pulse 4.0  | Swift 5.7  | Xcode 14.1  | iOS 14, tvOS 15, watchOS 8, macOS 12             |
 
 ## License
 

@@ -1,11 +1,13 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 
-@available(iOS 15, *)
+#if !os(macOS)
+
+@available(iOS 16, visionOS 1, *)
 struct NetworkResponseBodyCell: View {
     let viewModel: NetworkResponseBodyCellViewModel
 
@@ -26,6 +28,8 @@ struct NetworkResponseBodyCell: View {
         NetworkInspectorResponseBodyView(viewModel: viewModel.detailsViewModel)
     }
 }
+
+#endif
 
 struct NetworkResponseBodyCellViewModel {
     let details: String

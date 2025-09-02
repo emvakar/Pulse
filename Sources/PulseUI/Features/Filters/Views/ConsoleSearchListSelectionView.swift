@@ -1,59 +1,53 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
+
+#if !os(macOS)
 
 import SwiftUI
 import Pulse
 
-@available(iOS 15, *)
-struct ConsoleSearchListSelectionView<Data: RandomAccessCollection, ID: Hashable, Label: View>: View {
-    let title: String
-    let items: Data
-    let id: KeyPath<Data.Element, ID>
-    @Binding var selection: Set<ID>
-    let description: (Data.Element) -> String
-    @ViewBuilder let label: (Data.Element) -> Label
+@available(iOS 16, visionOS 1, *)
+package struct ConsoleSearchListSelectionView<Data: RandomAccessCollection, ID: Hashable, Label: View>: View {
+    package let title: String
+    package let items: Data
+    package let id: KeyPath<Data.Element, ID>
+    @Binding package var selection: Set<ID>
+    package let description: (Data.Element) -> String
+    @ViewBuilder package let label: (Data.Element) -> Label
 
-#if os(iOS) || os(macOS)
-    var limit = 6
+#if os(iOS) || os(visionOS)
+    package var limit = 6
 #else
-    var limit = 3
+    package var limit = 3
 #endif
+
+    package init(
+        title: String,
+        items: Data,
+        id: KeyPath<Data.Element, ID>,
+        selection: Binding<Set<ID>>,
+        description: @escaping (Data.Element) -> String,
+        @ViewBuilder label: @escaping (Data.Element) -> Label,
+        limit: Int? = nil
+    ) {
+        self.title = title
+        self.items = items
+        self.id = id
+        self._selection = selection
+        self.description = description
+        self.label = label
+        if let limit {
+            self.limit = limit
+        }
+    }
 
     @State private var searchText = ""
 
-#if os(macOS)
-    @State private var isExpanded = false
-
-    var body: some View {
-        if items.isEmpty {
-            emptyView
-        } else {
-            let filtered = self.filteredItems
-            HStack {
-                SearchBar(title: "Search", text: $searchText)
-                Spacer()
-                buttonToggleAll
-            }
-            ForEach(isExpanded ? filtered : Array(filtered.prefix(limit)), id: id, content: makeRow)
-            if filtered.count > limit {
-                HStack {
-                    if !isExpanded {
-                        Button(action: { isExpanded = true }) {
-                            Text("Show All ") + Text("(\(items.count))").foregroundColor(.secondary)
-                        }
-                    } else {
-                        Button("Show Less") { isExpanded = false }
-                    }
-                }
-            }
-        }
-    }
-#else
     @State private var isExpandedListPresented = false
     @State private var isSearching = false
 
-    var body: some View {
+    package var body: some View {
         if items.isEmpty {
             emptyView
         } else {
@@ -88,7 +82,7 @@ struct ConsoleSearchListSelectionView<Data: RandomAccessCollection, ID: Hashable
 #if os(tvOS)
         .frame(width: 800)
 #endif
-#if os(iOS)
+#if os(iOS) || os(visionOS)
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always))
         .disableAutocorrection(true)
 #else
@@ -96,7 +90,6 @@ struct ConsoleSearchListSelectionView<Data: RandomAccessCollection, ID: Hashable
         .disableAutocorrection(true)
 #endif
     }
-#endif
 
     // MARK: - Shared
 
@@ -116,10 +109,6 @@ struct ConsoleSearchListSelectionView<Data: RandomAccessCollection, ID: Hashable
                 selection.remove(item[keyPath: id])
             }
         }), label: { label(item).lineLimit(1) })
-#if os(macOS)
-        .help(description(item))
-        .frame(maxWidth: .infinity, alignment: .leading)
-#endif
     }
 
     private var filteredItems: [Data.Element] {
@@ -136,7 +125,7 @@ struct ConsoleSearchListSelectionView<Data: RandomAccessCollection, ID: Hashable
 }
 
 #if DEBUG
-@available(iOS 15, *)
+@available(iOS 16, visionOS 1, *)
 struct ConsoleSearchListSelectionView_Previews: PreviewProvider {
     static var previews: some View {
         ConsoleSearchListSelectionViewDemo()
@@ -144,7 +133,7 @@ struct ConsoleSearchListSelectionView_Previews: PreviewProvider {
     }
 }
 
-@available(iOS 15, *)
+@available(iOS 16, visionOS 1, *)
 private struct ConsoleSearchListSelectionViewDemo: View {
     @State private var selection: Set<String>  = []
 
@@ -161,4 +150,6 @@ private struct ConsoleSearchListSelectionViewDemo: View {
         }.listStyle(.plain)
     }
 }
+#endif
+
 #endif

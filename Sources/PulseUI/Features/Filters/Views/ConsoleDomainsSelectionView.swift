@@ -1,12 +1,14 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 import Combine
 
-@available(iOS 15, *)
+#if !os(macOS)
+
+@available(iOS 16, visionOS 1, *)
 struct ConsoleDomainsSelectionView: View {
     @ObservedObject var viewModel: ConsoleFiltersViewModel
     @EnvironmentObject private var index: LoggerStoreIndex
@@ -21,10 +23,10 @@ struct ConsoleDomainsSelectionView: View {
             label: { Text($0) }
         )
     }
-}   
+}
 
-private extension ConsoleFiltersViewModel {
-    func bindingForHosts(index: LoggerStoreIndex) -> Binding<Set<String>> {
+extension ConsoleFiltersViewModel {
+    package func bindingForHosts(index: LoggerStoreIndex) -> Binding<Set<String>> {
         Binding(get: {
             if let focused = self.criteria.network.host.focused {
                 return [focused]
@@ -43,3 +45,5 @@ private extension ConsoleFiltersViewModel {
         })
     }
 }
+
+#endif

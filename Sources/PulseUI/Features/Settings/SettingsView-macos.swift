@@ -1,31 +1,37 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 #if os(macOS)
 
 import SwiftUI
 import Pulse
 
+@available(macOS 13, *)
 struct SettingsView: View {
     @State private var isPresentingShareStoreView = false
     @State private var shareItems: ShareItems?
 
     @Environment(\.store) private var store
+    @EnvironmentObject private var environment: ConsoleEnvironment
 
     var body: some View {
         List {
-            if store === RemoteLogger.shared.store {
-                RemoteLoggerSettingsView(viewModel: .shared)
-            } else {
-                Text("Not available")
-                    .foregroundColor(.secondary)
-            }
-            Section(header: Text("Store")) {
-                if #available(macOS 13, *), let info = try? store.info() {
-                    LoggerStoreSizeChart(info: info, sizeLimit: store.configuration.sizeLimit)
+            if !UserSettings.shared.isRemoteLoggingHidden {
+                if store === RemoteLogger.shared.store {
+                    RemoteLoggerSettingsView(viewModel: .shared)
+                } else {
+                    Text("Not available")
+                        .foregroundColor(.secondary)
                 }
             }
+            Section("Store") {
+                // TODO: load this info async
+                //                if #available(macOS 13, *), let info = try? store.info() {
+                //                    LoggerStoreSizeChart(info: info, sizeLimit: store.configuration.sizeLimit)
+                //                }
+            }
+
             Section {
                 HStack {
                     Button("Show in Finder") {
@@ -38,44 +44,18 @@ struct SettingsView: View {
                     }
                 }
             }
-        }
+        }.listStyle(.sidebar).scrollContentBackground(.hidden)
     }
 }
 
 // MARK: - Preview
 
 #if DEBUG
+@available(macOS 13, *)
 struct UserSettingsView_Previews: PreviewProvider {
     static var previews: some View {
         SettingsView()
     }
 }
 #endif
-#endif
-
-#if os(iOS) || os(macOS)
-
-import SwiftUI
-
-struct SectionHeaderView: View {
-    var systemImage: String?
-    let title: String
-
-    var body: some View {
-        HStack {
-            if let systemImage = systemImage {
-                Image(systemName: systemImage)
-            }
-            Text(title)
-                .lineLimit(1)
-                .font(.headline)
-                .foregroundColor(.secondary)
-            Spacer()
-        }
-#if os(macOS)
-        .padding(.bottom, 8)
-#endif
-    }
-}
-
 #endif

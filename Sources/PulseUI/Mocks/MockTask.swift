@@ -1,50 +1,51 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import Foundation
 import Pulse
 
-#if DEBUG || PULSE_MOCK_INCLUDED
+#if DEBUG || STANDALONE_PULSE_APP
 
-struct MockTask {
-    var kind: Kind = .data
-    let originalRequest: URLRequest
-    var currentRequest: URLRequest { transactions.last!.request }
-    let response: URLResponse
-    let responseBody: Data
-    let transactions: [Transaction]
-    let delay: TimeInterval
-    var decodingError: Error?
+package struct MockTask {
+    package var kind: Kind = .data
+    package let originalRequest: URLRequest
+    package var currentRequest: URLRequest { transactions.last!.request }
+    package let response: URLResponse
+    package let responseBody: Data
+    package let transactions: [Transaction]
+    package let delay: TimeInterval
+    package var decodingError: Error?
+    package var taskDescription: String?
 
-    enum Kind {
+    package enum Kind {
         case data
         case upload(size: Int64)
         case download(size: Int64)
     }
 
-    struct Transaction {
-        let fetchType: URLSessionTaskMetrics.ResourceFetchType
-        let request: URLRequest
-        let response: URLResponse
-        let duration: TimeInterval
-        var isReusedConnection: Bool = false
+    package struct Transaction {
+        package let fetchType: URLSessionTaskMetrics.ResourceFetchType
+        package let request: URLRequest
+        package let response: URLResponse
+        package let duration: TimeInterval
+        package var isReusedConnection: Bool = false
     }
 
-    var duration: TimeInterval {
+    package var duration: TimeInterval {
         transactions.map(\.duration).reduce(0, +)
     }
 }
 
 extension MockTask {
-    static let allEntities: [NetworkTaskEntity]  = MockTask.allTasks.map(LoggerStore.preview.entity)
+    package static let allEntities: [NetworkTaskEntity]  = MockTask.allTasks.map(LoggerStore.preview.entity)
 
-    static var allTasks: [MockTask] = [.login, .profile, .repos, .octocat, .downloadNuke, .createAPI, .uploadPulseArchive, .patchRepo]
+    package static var allTasks: [MockTask] = [.login, .profile, .repos, .octocat, .downloadNuke, .createAPI, .uploadPulseArchive, .patchRepo]
 
     /// A successful request the demonstrates:
     ///
     /// - Query parameters in URL
-    static let login = MockTask(
+    package static let login = MockTask(
         originalRequest: mockLoginOriginalRequest,
         response: mockLoginResponse,
         responseBody: mockLoginResponseBody,
@@ -57,7 +58,7 @@ extension MockTask {
     /// A failing request:
     ///
     /// - HTTP status code (404) that doesn't pass validation
-    static let profile = MockTask(
+    package static let profile = MockTask(
         originalRequest: mockProfileOriginalRequest,
         response: mockProfileFailureResponse,
         responseBody: mockProfileFailureResponseBody,
@@ -70,7 +71,7 @@ extension MockTask {
     /// A successful request that demonstrates:
     ///
     /// - Large response body to check FileViewer performance
-    static let repos = MockTask(
+    package static let repos = MockTask(
         originalRequest: mockReposOriginalRequest,
         response: mockReposResponse,
         responseBody: mockReposBody,
@@ -84,7 +85,7 @@ extension MockTask {
     ///
     /// - Image in the response with a respective "Content-Type"
     /// - Local cache lookup with further validation (302)
-    static let octocat = MockTask(
+    package static let octocat = MockTask(
         originalRequest: mockOctocatOriginalRequest,
         response: mockOctocatResponse,
         responseBody: mockOcotocatResponseBody,
@@ -95,37 +96,38 @@ extension MockTask {
         delay: 3.5
     )
 
-    static let downloadNuke = MockTask(
+    package static let downloadNuke = MockTask(
         kind: .download(size: 6695689),
         originalRequest: mockDownloadNukeOriginalRequest,
         response: mockDownloadNukeResponse,
         responseBody: Data(),
         transactions: [
             .init(fetchType: .networkLoad, request: mockDownloadNukeOriginalRequest, response: mockDownloadNukeRedirectResponse, duration: 0.21283),
-            .init(fetchType: .networkLoad, request: mockDownloadNukeCurrentRequest, response: mockDownloadNukeResponse, duration: 4.25254, isReusedConnection: true),
+            .init(fetchType: .networkLoad, request: mockDownloadNukeCurrentRequest, response: mockDownloadNukeResponse, duration: 4.25254, isReusedConnection: true)
         ],
         delay: 3.5
     )
 
-    static let uploadPulseArchive = MockTask(
+    package static let uploadPulseArchive = MockTask(
         kind: .upload(size: 21851748),
         originalRequest: mockUploadPulseOriginalRequest,
         response: mockUploadPulseResponse,
         responseBody: Data(),
         transactions: [
-            .init(fetchType: .networkLoad, request: mockUploadPulseCurrentRequest, response: mockUploadPulseResponse, duration: 2.21283, isReusedConnection: true),
+            .init(fetchType: .networkLoad, request: mockUploadPulseCurrentRequest, response: mockUploadPulseResponse, duration: 2.21283, isReusedConnection: true)
         ],
-        delay: 6.5
+        delay: 6.5,
+        taskDescription: "upload-pulse-archive"
     )
 
-    static let createAPI = MockTask(
+    package static let createAPI = MockTask(
         originalRequest: mockCreateAPIOriginalRequest,
         response: mockCreateaAPIResponse,
         responseBody: mockCreateaAPIBody,
         transactions: [
             .init(fetchType: .networkLoad, request: mockCreateAPICurrentRequest, response: mockCreateaAPIRedirectResponse, duration: 0.20283),
             .init(fetchType: .localCache, request: mockCreateAPIRedirectRequest, response: mockCreateaAPIResponse, duration: 0.003),
-            .init(fetchType: .networkLoad, request: mockCreateAPIRedirectRequest, response: mockCreateAPIResponseNotChanged, duration: 0.0980, isReusedConnection: true),
+            .init(fetchType: .networkLoad, request: mockCreateAPIRedirectRequest, response: mockCreateAPIResponseNotChanged, duration: 0.0980, isReusedConnection: true)
         ],
         delay: 5.5
     )
@@ -134,7 +136,7 @@ extension MockTask {
     ///
     /// - Contains Query Items in the response body
     /// - Fails with a decoding error
-    static let patchRepo = MockTask(
+    package static let patchRepo = MockTask(
         originalRequest: mockPatchRepoOriginalRequest,
         response: mockPatchRepoResponse,
         responseBody: mockPatchRepoResponseBody,
@@ -145,7 +147,7 @@ extension MockTask {
         decodingError: mockPatchRepoDecodingError
     )
 
-    static let networkingFailure = MockTask(
+    package static let networkingFailure = MockTask(
         originalRequest: mockLoginOriginalRequest,
         response: mockLoginResponse,
         responseBody: mockLoginResponseBody,
@@ -162,7 +164,8 @@ extension MockTask {
 private let mockLoginOriginalRequest = URLRequest(
     url: "https://github.com/login?scopes=profile,repos",
     method: "POST",
-    headers: ["Cache-Control": "no-cache"]
+    headers: ["Cache-Control": "no-cache"],
+    body: "{\"login\":\"example\",\"password\":\"example2\"}"
 )
 
 private let mockLoginCurrentRequest = mockLoginOriginalRequest.adding(headers: [
@@ -249,7 +252,6 @@ private let mockProfileFailureResponseBody = """
 </html>
 """.data(using: .utf8)!
 
-
 // MARK: - Octocat (GET, Image)
 
 private let mockOctocatOriginalRequest = URLRequest(url: "https://github.com/octocat.png", headers: [
@@ -301,7 +303,7 @@ private let mockReposBody = Bundle.main.url(forResource: "repos", withExtension:
 
 // MARK: - /CreateAPI (GET, redirect)
 
-private let mockCreateAPIOriginalRequest = URLRequest(url: "https://github.com/CreateAPI/Get")
+private let mockCreateAPIOriginalRequest = URLRequest(url: "https://github.com/createapi/get")
 
 private let mockCreateAPICurrentRequest = mockCreateAPIOriginalRequest.adding(headers: [
     "User-Agent": "Pulse Demo/2.0",
@@ -310,14 +312,14 @@ private let mockCreateAPICurrentRequest = mockCreateAPIOriginalRequest.adding(he
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 ])
 
-private let mockCreateAPIRedirectRequest = URLRequest(url: "https://github.com/kean/Get").adding(headers: [
+private let mockCreateAPIRedirectRequest = URLRequest(url: "https://github.com/kean/get").adding(headers: [
     "User-Agent": "Pulse Demo/2.0",
     "Accept-Encoding": "gzip",
     "Accept-Language": "en-us",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 ])
 
-private let mockCreateaAPIRedirectResponse = HTTPURLResponse(url: "https://github.com/CreateAPI/Get", statusCode: 301, headers: [
+private let mockCreateaAPIRedirectResponse = HTTPURLResponse(url: "https://github.com/createapi/get", statusCode: 301, headers: [
     "Content-Type": "text/html; charset=utf-8",
     "Location": "https://github.com/kean/Get",
     "Cache-Control": "no-cache",
@@ -325,10 +327,10 @@ private let mockCreateaAPIRedirectResponse = HTTPURLResponse(url: "https://githu
     "Server": "GitHub.com"
 ])
 
-private let mockCreateaAPIResponse = HTTPURLResponse(url: "https://github.com/kean/Get", statusCode: 200, headers: [
+private let mockCreateaAPIResponse = HTTPURLResponse(url: "https://github.com/kean/get", statusCode: 200, headers: [
     "Content-Type": "text/html; charset=utf-8",
     "Content-Length": "90",
-    "Cache-Control": "no-store",
+    "Cache-Control": "no-store"
 ])
 
 private let mockCreateAPIResponseNotChanged = HTTPURLResponse(url: "https://github.com/kean/Get", statusCode: 304, headers: [
@@ -348,7 +350,7 @@ private let mockCreateaAPIBody = """
 // MARK: - PATCH
 
 private let mockPatchRepoOriginalRequest: URLRequest = {
-    var request = URLRequest(url: "https://github.com/repos/kean/Nuke", method: "PATCH")
+    var request = URLRequest(url: "https://github.com/repos/kean/nuke", method: "PATCH")
     request.httpBody = """
     name=ImageKit&description=Image%20Loading%Framework&private=false
     """.data(using: .utf8)
@@ -363,7 +365,7 @@ private let mockPatchRepoCurrentRequest = mockPatchRepoOriginalRequest.adding(he
     "Accept": "application/vnd.github+json"
 ])
 
-private let mockPatchRepoResponse = HTTPURLResponse(url: "https://github.com/repos/kean/Nuke", statusCode: 200, headers: [
+private let mockPatchRepoResponse = HTTPURLResponse(url: "https://github.com/repos/kean/nuke", statusCode: 200, headers: [
     "Content-Length": "165061",
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
@@ -446,7 +448,7 @@ private let mockPatchRepoDecodingError: Error = {
 
 // MARK: - Download (GET)
 
-private let mockDownloadNukeOriginalRequest = URLRequest(url: "https://github.com/kean/Nuke/archive/tags/11.0.0.zip")
+private let mockDownloadNukeOriginalRequest = URLRequest(url: "https://github.com/kean/nuke/archive/tags/11.0.0.zip")
 
 private let mockDownloadNukeCurrentRequest = mockDownloadNukeOriginalRequest.adding(headers: [
     "User-Agent": "Pulse Demo/2.0",
@@ -455,16 +457,16 @@ private let mockDownloadNukeCurrentRequest = mockDownloadNukeOriginalRequest.add
     "Accept": "*/*"
 ])
 
-private let mockDownloadNukeRedirectResponse = HTTPURLResponse(url: "https://codeload.github.com/kean/Nuke/zip/tags/11.0.0", statusCode: 302, headers: [
+private let mockDownloadNukeRedirectResponse = HTTPURLResponse(url: "https://codeload.github.com/kean/nuke/zip/tags/11.0.0", statusCode: 302, headers: [
     "Server": "GitHub.com",
     "Content-Type": "text/html; charset=utf-8",
     "Location": "https://codeload.github.com/kean/Nuke/zip/tags/11.0.0",
     "Cache-Control": "max-age=0, private",
     "Content-Length": "0",
-    "Content-Security-Policy": "default-src 'none'; base-uri 'self'; block-all-mixed-content; child-src github.com/assets-cdn/worker/ gist.github.com/assets-cdn/worker/; connect-src 'self' uploads.github.com objects-origin.githubusercontent.com www.githubstatus.com collector.github.com raw.githubusercontent.com api.github.com github-cloud.s3.amazonaws.com github-production-repository-file-5c1aeb.s3.amazonaws.com github-production-upload-manifest-file-7fdce7.s3.amazonaws.com github-production-user-asset-6210df.s3.amazonaws.com cdn.optimizely.com logx.optimizely.com/v1/events *.actions.githubusercontent.com wss://*.actions.githubusercontent.com online.visualstudio.com/api/v1/locations github-production-repository-image-32fea6.s3.amazonaws.com github-production-release-asset-2e65be.s3.amazonaws.com",
+    "Content-Security-Policy": "default-src 'none'; base-uri 'self'; block-all-mixed-content; child-src github.com/assets-cdn/worker/ gist.github.com/assets-cdn/worker/; connect-src 'self' uploads.github.com objects-origin.githubusercontent.com www.githubstatus.com collector.github.com raw.githubusercontent.com api.github.com github-cloud.s3.amazonaws.com github-production-repository-file-5c1aeb.s3.amazonaws.com github-production-upload-manifest-file-7fdce7.s3.amazonaws.com github-production-user-asset-6210df.s3.amazonaws.com cdn.optimizely.com logx.optimizely.com/v1/events *.actions.githubusercontent.com wss://*.actions.githubusercontent.com online.visualstudio.com/api/v1/locations github-production-repository-image-32fea6.s3.amazonaws.com github-production-release-asset-2e65be.s3.amazonaws.com"
 ])
 
-private let mockDownloadNukeResponse = HTTPURLResponse(url: "https://codeload.github.com/kean/Nuke/zip/tags/11.0.0", statusCode: 200, headers: [
+private let mockDownloadNukeResponse = HTTPURLResponse(url: "https://codeload.github.com/kean/nuke/zip/tags/11.0.0", statusCode: 200, headers: [
     "Content-Type": "application/zip",
     "Content-Disposition": "attachment; filename=Nuke-11.0.0.zip",
     "Etag": "W/\\\"4358c3c3d9bd5a22f6d86b47cbe567417fa1efc8df6beaa54c1730caf6ad86da\\\"",
@@ -473,7 +475,7 @@ private let mockDownloadNukeResponse = HTTPURLResponse(url: "https://codeload.gi
 
 // MARK: - Upload (POST)
 
-private let mockUploadPulseOriginalRequest = URLRequest(url: "https://objects-origin.githubusercontent.com/github-production-release-asset-2e65be", method: "POST", headers: [
+private let mockUploadPulseOriginalRequest = URLRequest(url: "https://objects-origin.githubusercontent.com/github-production-release-asset-2e65be/upload-we9zs7v.zip", method: "POST", headers: [
     "Content-Length": "21851748",
     "Content-Type": "multipart/form-data; boundary=----WebKitFormBoundaryrv8XAHQPtQcWta3k"
 ])
@@ -485,22 +487,24 @@ private let mockUploadPulseCurrentRequest = mockUploadPulseOriginalRequest.addin
     "Accept": "*/*"
 ])
 
-private let mockUploadPulseResponse = HTTPURLResponse(url: "https://objects-origin.githubusercontent.com/github-production-release-asset-2e65be", statusCode: 204, headers: [
+private let mockUploadPulseResponse = HTTPURLResponse(url: "https://objects-origin.githubusercontent.com/github-production-release-asset-2e65be/upload-we9zs7v.zip", statusCode: 204, headers: [
     "Vary": "Origin",
     "Access-Control-Allow-Origin": "https://github.com"
 ])
 
 // MARK: - PDF
 
-let mockPDF = Data(base64Encoded: "JVBERi0xLjMNCiXi48/TDQoNCjEgMCBvYmoNCjw8DQovVHlwZSAvQ2F0YWxvZw0KL091dGxpbmVzIDIgMCBSDQovUGFnZXMgMyAwIFINCj4+DQplbmRvYmoNCg0KMiAwIG9iag0KPDwNCi9UeXBlIC9PdXRsaW5lcw0KL0NvdW50IDANCj4+DQplbmRvYmoNCg0KMyAwIG9iag0KPDwNCi9UeXBlIC9QYWdlcw0KL0NvdW50IDINCi9LaWRzIFsgNCAwIFIgNiAwIFIgXSANCj4+DQplbmRvYmoNCg0KNCAwIG9iag0KPDwNCi9UeXBlIC9QYWdlDQovUGFyZW50IDMgMCBSDQovUmVzb3VyY2VzIDw8DQovRm9udCA8PA0KL0YxIDkgMCBSIA0KPj4NCi9Qcm9jU2V0IDggMCBSDQo+Pg0KL01lZGlhQm94IFswIDAgNjEyLjAwMDAgNzkyLjAwMDBdDQovQ29udGVudHMgNSAwIFINCj4+DQplbmRvYmoNCg0KNSAwIG9iag0KPDwgL0xlbmd0aCAxMDc0ID4+DQpzdHJlYW0NCjIgSg0KQlQNCjAgMCAwIHJnDQovRjEgMDAyNyBUZg0KNTcuMzc1MCA3MjIuMjgwMCBUZA0KKCBBIFNpbXBsZSBQREYgRmlsZSApIFRqDQpFVA0KQlQNCi9GMSAwMDEwIFRmDQo2OS4yNTAwIDY4OC42MDgwIFRkDQooIFRoaXMgaXMgYSBzbWFsbCBkZW1vbnN0cmF0aW9uIC5wZGYgZmlsZSAtICkgVGoNCkVUDQpCVA0KL0YxIDAwMTAgVGYNCjY5LjI1MDAgNjY0LjcwNDAgVGQNCigganVzdCBmb3IgdXNlIGluIHRoZSBWaXJ0dWFsIE1lY2hhbmljcyB0dXRvcmlhbHMuIE1vcmUgdGV4dC4gQW5kIG1vcmUgKSBUag0KRVQNCkJUDQovRjEgMDAxMCBUZg0KNjkuMjUwMCA2NTIuNzUyMCBUZA0KKCB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiApIFRqDQpFVA0KQlQNCi9GMSAwMDEwIFRmDQo2OS4yNTAwIDYyOC44NDgwIFRkDQooIEFuZCBtb3JlIHRleHQuIEFuZCBtb3JlIHRleHQuIEFuZCBtb3JlIHRleHQuIEFuZCBtb3JlIHRleHQuIEFuZCBtb3JlICkgVGoNCkVUDQpCVA0KL0YxIDAwMTAgVGYNCjY5LjI1MDAgNjE2Ljg5NjAgVGQNCiggdGV4dC4gQW5kIG1vcmUgdGV4dC4gQm9yaW5nLCB6enp6ei4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gQW5kICkgVGoNCkVUDQpCVA0KL0YxIDAwMTAgVGYNCjY5LjI1MDAgNjA0Ljk0NDAgVGQNCiggbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiApIFRqDQpFVA0KQlQNCi9GMSAwMDEwIFRmDQo2OS4yNTAwIDU5Mi45OTIwIFRkDQooIEFuZCBtb3JlIHRleHQuIEFuZCBtb3JlIHRleHQuICkgVGoNCkVUDQpCVA0KL0YxIDAwMTAgVGYNCjY5LjI1MDAgNTY5LjA4ODAgVGQNCiggQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgKSBUag0KRVQNCkJUDQovRjEgMDAxMCBUZg0KNjkuMjUwMCA1NTcuMTM2MCBUZA0KKCB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBFdmVuIG1vcmUuIENvbnRpbnVlZCBvbiBwYWdlIDIgLi4uKSBUag0KRVQNCmVuZHN0cmVhbQ0KZW5kb2JqDQoNCjYgMCBvYmoNCjw8DQovVHlwZSAvUGFnZQ0KL1BhcmVudCAzIDAgUg0KL1Jlc291cmNlcyA8PA0KL0ZvbnQgPDwNCi9GMSA5IDAgUiANCj4+DQovUHJvY1NldCA4IDAgUg0KPj4NCi9NZWRpYUJveCBbMCAwIDYxMi4wMDAwIDc5Mi4wMDAwXQ0KL0NvbnRlbnRzIDcgMCBSDQo+Pg0KZW5kb2JqDQoNCjcgMCBvYmoNCjw8IC9MZW5ndGggNjc2ID4+DQpzdHJlYW0NCjIgSg0KQlQNCjAgMCAwIHJnDQovRjEgMDAyNyBUZg0KNTcuMzc1MCA3MjIuMjgwMCBUZA0KKCBTaW1wbGUgUERGIEZpbGUgMiApIFRqDQpFVA0KQlQNCi9GMSAwMDEwIFRmDQo2OS4yNTAwIDY4OC42MDgwIFRkDQooIC4uLmNvbnRpbnVlZCBmcm9tIHBhZ2UgMS4gWWV0IG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gKSBUag0KRVQNCkJUDQovRjEgMDAxMCBUZg0KNjkuMjUwMCA2NzYuNjU2MCBUZA0KKCBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSApIFRqDQpFVA0KQlQNCi9GMSAwMDEwIFRmDQo2OS4yNTAwIDY2NC43MDQwIFRkDQooIHRleHQuIE9oLCBob3cgYm9yaW5nIHR5cGluZyB0aGlzIHN0dWZmLiBCdXQgbm90IGFzIGJvcmluZyBhcyB3YXRjaGluZyApIFRqDQpFVA0KQlQNCi9GMSAwMDEwIFRmDQo2OS4yNTAwIDY1Mi43NTIwIFRkDQooIHBhaW50IGRyeS4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gKSBUag0KRVQNCkJUDQovRjEgMDAxMCBUZg0KNjkuMjUwMCA2NDAuODAwMCBUZA0KKCBCb3JpbmcuICBNb3JlLCBhIGxpdHRsZSBtb3JlIHRleHQuIFRoZSBlbmQsIGFuZCBqdXN0IGFzIHdlbGwuICkgVGoNCkVUDQplbmRzdHJlYW0NCmVuZG9iag0KDQo4IDAgb2JqDQpbL1BERiAvVGV4dF0NCmVuZG9iag0KDQo5IDAgb2JqDQo8PA0KL1R5cGUgL0ZvbnQNCi9TdWJ0eXBlIC9UeXBlMQ0KL05hbWUgL0YxDQovQmFzZUZvbnQgL0hlbHZldGljYQ0KL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcNCj4+DQplbmRvYmoNCg0KMTAgMCBvYmoNCjw8DQovQ3JlYXRvciAoUmF2ZSBcKGh0dHA6Ly93d3cubmV2cm9uYS5jb20vcmF2ZVwpKQ0KL1Byb2R1Y2VyIChOZXZyb25hIERlc2lnbnMpDQovQ3JlYXRpb25EYXRlIChEOjIwMDYwMzAxMDcyODI2KQ0KPj4NCmVuZG9iag0KDQp4cmVmDQowIDExDQowMDAwMDAwMDAwIDY1NTM1IGYNCjAwMDAwMDAwMTkgMDAwMDAgbg0KMDAwMDAwMDA5MyAwMDAwMCBuDQowMDAwMDAwMTQ3IDAwMDAwIG4NCjAwMDAwMDAyMjIgMDAwMDAgbg0KMDAwMDAwMDM5MCAwMDAwMCBuDQowMDAwMDAxNTIyIDAwMDAwIG4NCjAwMDAwMDE2OTAgMDAwMDAgbg0KMDAwMDAwMjQyMyAwMDAwMCBuDQowMDAwMDAyNDU2IDAwMDAwIG4NCjAwMDAwMDI1NzQgMDAwMDAgbg0KDQp0cmFpbGVyDQo8PA0KL1NpemUgMTENCi9Sb290IDEgMCBSDQovSW5mbyAxMCAwIFINCj4+DQoNCnN0YXJ0eHJlZg0KMjcxNA0KJSVFT0YNCg==")!
+package let mockPDF = Data(base64Encoded: "JVBERi0xLjMNCiXi48/TDQoNCjEgMCBvYmoNCjw8DQovVHlwZSAvQ2F0YWxvZw0KL091dGxpbmVzIDIgMCBSDQovUGFnZXMgMyAwIFINCj4+DQplbmRvYmoNCg0KMiAwIG9iag0KPDwNCi9UeXBlIC9PdXRsaW5lcw0KL0NvdW50IDANCj4+DQplbmRvYmoNCg0KMyAwIG9iag0KPDwNCi9UeXBlIC9QYWdlcw0KL0NvdW50IDINCi9LaWRzIFsgNCAwIFIgNiAwIFIgXSANCj4+DQplbmRvYmoNCg0KNCAwIG9iag0KPDwNCi9UeXBlIC9QYWdlDQovUGFyZW50IDMgMCBSDQovUmVzb3VyY2VzIDw8DQovRm9udCA8PA0KL0YxIDkgMCBSIA0KPj4NCi9Qcm9jU2V0IDggMCBSDQo+Pg0KL01lZGlhQm94IFswIDAgNjEyLjAwMDAgNzkyLjAwMDBdDQovQ29udGVudHMgNSAwIFINCj4+DQplbmRvYmoNCg0KNSAwIG9iag0KPDwgL0xlbmd0aCAxMDc0ID4+DQpzdHJlYW0NCjIgSg0KQlQNCjAgMCAwIHJnDQovRjEgMDAyNyBUZg0KNTcuMzc1MCA3MjIuMjgwMCBUZA0KKCBBIFNpbXBsZSBQREYgRmlsZSApIFRqDQpFVA0KQlQNCi9GMSAwMDEwIFRmDQo2OS4yNTAwIDY4OC42MDgwIFRkDQooIFRoaXMgaXMgYSBzbWFsbCBkZW1vbnN0cmF0aW9uIC5wZGYgZmlsZSAtICkgVGoNCkVUDQpCVA0KL0YxIDAwMTAgVGYNCjY5LjI1MDAgNjY0LjcwNDAgVGQNCigganVzdCBmb3IgdXNlIGluIHRoZSBWaXJ0dWFsIE1lY2hhbmljcyB0dXRvcmlhbHMuIE1vcmUgdGV4dC4gQW5kIG1vcmUgKSBUag0KRVQNCkJUDQovRjEgMDAxMCBUZg0KNjkuMjUwMCA2NTIuNzUyMCBUZA0KKCB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiApIFRqDQpFVA0KQlQNCi9GMSAwMDEwIFRmDQo2OS4yNTAwIDYyOC44NDgwIFRkDQooIEFuZCBtb3JlIHRleHQuIEFuZCBtb3JlIHRleHQuIEFuZCBtb3JlIHRleHQuIEFuZCBtb3JlIHRleHQuIEFuZCBtb3JlICkgVGoNCkVUDQpCVA0KL0YxIDAwMTAgVGYNCjY5LjI1MDAgNjE2Ljg5NjAgVGQNCiggdGV4dC4gQW5kIG1vcmUgdGV4dC4gQm9yaW5nLCB6enp6ei4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gQW5kICkgVGoNCkVUDQpCVA0KL0YxIDAwMTAgVGYNCjY5LjI1MDAgNjA0Ljk0NDAgVGQNCiggbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiApIFRqDQpFVA0KQlQNCi9GMSAwMDEwIFRmDQo2OS4yNTAwIDU5Mi45OTIwIFRkDQooIEFuZCBtb3JlIHRleHQuIEFuZCBtb3JlIHRleHQuICkgVGoNCkVUDQpCVA0KL0YxIDAwMTAgVGYNCjY5LjI1MDAgNTY5LjA4ODAgVGQNCiggQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgKSBUag0KRVQNCkJUDQovRjEgMDAxMCBUZg0KNjkuMjUwMCA1NTcuMTM2MCBUZA0KKCB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBFdmVuIG1vcmUuIENvbnRpbnVlZCBvbiBwYWdlIDIgLi4uKSBUag0KRVQNCmVuZHN0cmVhbQ0KZW5kb2JqDQoNCjYgMCBvYmoNCjw8DQovVHlwZSAvUGFnZQ0KL1BhcmVudCAzIDAgUg0KL1Jlc291cmNlcyA8PA0KL0ZvbnQgPDwNCi9GMSA5IDAgUiANCj4+DQovUHJvY1NldCA4IDAgUg0KPj4NCi9NZWRpYUJveCBbMCAwIDYxMi4wMDAwIDc5Mi4wMDAwXQ0KL0NvbnRlbnRzIDcgMCBSDQo+Pg0KZW5kb2JqDQoNCjcgMCBvYmoNCjw8IC9MZW5ndGggNjc2ID4+DQpzdHJlYW0NCjIgSg0KQlQNCjAgMCAwIHJnDQovRjEgMDAyNyBUZg0KNTcuMzc1MCA3MjIuMjgwMCBUZA0KKCBTaW1wbGUgUERGIEZpbGUgMiApIFRqDQpFVA0KQlQNCi9GMSAwMDEwIFRmDQo2OS4yNTAwIDY4OC42MDgwIFRkDQooIC4uLmNvbnRpbnVlZCBmcm9tIHBhZ2UgMS4gWWV0IG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gKSBUag0KRVQNCkJUDQovRjEgMDAxMCBUZg0KNjkuMjUwMCA2NzYuNjU2MCBUZA0KKCBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSB0ZXh0LiBBbmQgbW9yZSApIFRqDQpFVA0KQlQNCi9GMSAwMDEwIFRmDQo2OS4yNTAwIDY2NC43MDQwIFRkDQooIHRleHQuIE9oLCBob3cgYm9yaW5nIHR5cGluZyB0aGlzIHN0dWZmLiBCdXQgbm90IGFzIGJvcmluZyBhcyB3YXRjaGluZyApIFRqDQpFVA0KQlQNCi9GMSAwMDEwIFRmDQo2OS4yNTAwIDY1Mi43NTIwIFRkDQooIHBhaW50IGRyeS4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gQW5kIG1vcmUgdGV4dC4gKSBUag0KRVQNCkJUDQovRjEgMDAxMCBUZg0KNjkuMjUwMCA2NDAuODAwMCBUZA0KKCBCb3JpbmcuICBNb3JlLCBhIGxpdHRsZSBtb3JlIHRleHQuIFRoZSBlbmQsIGFuZCBqdXN0IGFzIHdlbGwuICkgVGoNCkVUDQplbmRzdHJlYW0NCmVuZG9iag0KDQo4IDAgb2JqDQpbL1BERiAvVGV4dF0NCmVuZG9iag0KDQo5IDAgb2JqDQo8PA0KL1R5cGUgL0ZvbnQNCi9TdWJ0eXBlIC9UeXBlMQ0KL05hbWUgL0YxDQovQmFzZUZvbnQgL0hlbHZldGljYQ0KL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcNCj4+DQplbmRvYmoNCg0KMTAgMCBvYmoNCjw8DQovQ3JlYXRvciAoUmF2ZSBcKGh0dHA6Ly93d3cubmV2cm9uYS5jb20vcmF2ZVwpKQ0KL1Byb2R1Y2VyIChOZXZyb25hIERlc2lnbnMpDQovQ3JlYXRpb25EYXRlIChEOjIwMDYwMzAxMDcyODI2KQ0KPj4NCmVuZG9iag0KDQp4cmVmDQowIDExDQowMDAwMDAwMDAwIDY1NTM1IGYNCjAwMDAwMDAwMTkgMDAwMDAgbg0KMDAwMDAwMDA5MyAwMDAwMCBuDQowMDAwMDAwMTQ3IDAwMDAwIG4NCjAwMDAwMDAyMjIgMDAwMDAgbg0KMDAwMDAwMDM5MCAwMDAwMCBuDQowMDAwMDAxNTIyIDAwMDAwIG4NCjAwMDAwMDE2OTAgMDAwMDAgbg0KMDAwMDAwMjQyMyAwMDAwMCBuDQowMDAwMDAyNDU2IDAwMDAwIG4NCjAwMDAwMDI1NzQgMDAwMDAgbg0KDQp0cmFpbGVyDQo8PA0KL1NpemUgMTENCi9Sb290IDEgMCBSDQovSW5mbyAxMCAwIFINCj4+DQoNCnN0YXJ0eHJlZg0KMjcxNA0KJSVFT0YNCg==")!
 
 // MARK: Helpers
 
 private extension URLRequest {
-    init(url: String, method: String = "GET", headers: [String: String] = [:]) {
+    init(url: String, method: String = "GET", headers: [String: String] = [:],
+         body: String? = nil) {
         self.init(url: URL(string: url)!)
         self.httpMethod = method
         self.allHTTPHeaderFields = headers
+        self.httpBody = body?.data(using: .utf8)
     }
 
     func adding(headers: [String: String]) -> Self {

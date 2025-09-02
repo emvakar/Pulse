@@ -1,17 +1,17 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import Foundation
 import SwiftUI
 import Pulse
 
-struct StatusLabelViewModel {
-    let systemImage: String
-    let tint: Color
-    let title: String
+package struct StatusLabelViewModel {
+    package let systemImage: String
+    package let tint: Color
+    package let title: String
 
-    init(task: NetworkTaskEntity, store: LoggerStore) {
+    package init(task: NetworkTaskEntity, store: LoggerStore?) {
         guard let state = task.state(in: store) else {
             self.systemImage = "questionmark.diamond.fill"
             self.tint = .secondary
@@ -34,7 +34,7 @@ struct StatusLabelViewModel {
         }
     }
 
-    init(transaction: NetworkTransactionMetricsEntity) {
+    package init(transaction: NetworkTransactionMetricsEntity) {
         if let response = transaction.response {
             if response.isSuccess {
                 self.systemImage = "checkmark.circle.fill"
@@ -52,7 +52,7 @@ struct StatusLabelViewModel {
         }
     }
 
-    var text: Text {
+    package var text: Text {
         (Text(Image(systemName: systemImage)) + Text(" " + title))
             .foregroundColor(tint)
     }

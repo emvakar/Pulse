@@ -1,8 +1,8 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 
 import SwiftUI
 import CoreData
@@ -20,14 +20,14 @@ public struct ConsoleView: View {
     }
 
     public var body: some View {
-        if #available(iOS 15, *) {
+        if #available(iOS 16, *) {
             contents
         } else {
-            PlaceholderView(imageName: "xmark.octagon", title: "Unsupported", subtitle: "Pulse requires iOS 15 or later").padding()
+            PlaceholderView(imageName: "xmark.octagon", title: "Unsupported", subtitle: "Pulse requires iOS 16 or later").padding()
         }
     }
 
-    @available(iOS 15, *)
+    @available(iOS 16, visionOS 1, *)
     private var contents: some View {
         ConsoleListView()
             .navigationTitle(environment.title)
@@ -53,7 +53,7 @@ public struct ConsoleView: View {
         return copy
     }
 
-    @available(iOS 15, *)
+    @available(iOS 16, visionOS 1, *)
     @ViewBuilder private var trailingNavigationBarItems: some View {
         Button(action: { environment.router.isShowingShareStore = true }) {
             Image(systemName: "square.and.arrow.up")
@@ -81,4 +81,3 @@ struct ConsoleView_Previews: PreviewProvider {
 #endif
 
 #endif
-

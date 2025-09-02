@@ -1,39 +1,47 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 import PDFKit
 
-struct PDFKitRepresentedView: UIViewRepresentable {
-    let document: PDFDocument
+package struct PDFKitRepresentedView: UIViewRepresentable {
+    package let document: PDFDocument
 
-    func makeUIView(context: Context) -> PDFView {
+    package init(document: PDFDocument) {
+        self.document = document
+    }
+
+    package func makeUIView(context: Context) -> PDFView {
         let pdfView = PDFView()
         pdfView.document = document
         return pdfView
     }
 
-    func updateUIView(_ view: PDFView, context: Context) {
+    package func updateUIView(_ view: PDFView, context: Context) {
         // Do nothing
     }
 }
 #elseif os(macOS)
 import PDFKit
 
-struct PDFKitRepresentedView: NSViewRepresentable {
-    let document: PDFDocument
+package struct PDFKitRepresentedView: NSViewRepresentable {
+    package let document: PDFDocument
 
-    func makeNSView(context: Context) -> PDFView {
+    package init(document: PDFDocument) {
+        self.document = document
+    }
+
+    package func makeNSView(context: Context) -> PDFView {
         let pdfView = PDFView()
         pdfView.document = document
         pdfView.autoScales = true
         return pdfView
     }
 
-    func updateNSView(_ view: PDFView, context: Context) {
+    package func updateNSView(_ view: PDFView, context: Context) {
         // Do nothing
     }
 }

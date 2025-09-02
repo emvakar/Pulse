@@ -1,34 +1,31 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 
 import SwiftUI
 import Pulse
 import CoreData
 import Combine
 
-@available(iOS 15, *)
+@available(iOS 16, visionOS 1, *)
 protocol ConsoleSearchOperationDelegate: AnyObject {
     func searchOperation(_ operation: ConsoleSearchOperation, didAddResults results: [ConsoleSearchResultViewModel])
     func searchOperationDidFinish(_ operation: ConsoleSearchOperation, hasMore: Bool)
 }
 
-@available(iOS 15, *)
+@available(iOS 16, visionOS 1, *)
 final class ConsoleSearchOperation {
     private let parameters: ConsoleSearchParameters
     private var entities: [NSManagedObject]
     private var objectIDs: [NSManagedObjectID]
     private var index = 0
-    private var cutoff = 10
+    private var cutoff = 12
     private let service: ConsoleSearchService
     private let context: NSManagedObjectContext
     private let lock: os_unfair_lock_t
     private var _isCancelled = false
-
-    private let hasLogFilters: Bool
-    private let hasNetworkFilers: Bool
 
     weak var delegate: ConsoleSearchOperationDelegate?
 
@@ -41,9 +38,6 @@ final class ConsoleSearchOperation {
         self.parameters = parameters
         self.service = service
         self.context = context
-
-        self.hasLogFilters = parameters.filters.contains { $0.filter is (any ConsoleSearchLogFilterProtocol) }
-        self.hasNetworkFilers = parameters.filters.contains { $0.filter is (any ConsoleSearchNetworkFilterProtocol) }
 
         self.lock = .allocate(capacity: 1)
         self.lock.initialize(to: os_unfair_lock())
@@ -93,10 +87,8 @@ final class ConsoleSearchOperation {
         }
         switch LoggerEntity(entity) {
         case .message(let message):
-            guard !hasNetworkFilers else { return nil }
             return _search(message, parameters: parameters)
         case .task(let task):
-            guard !hasLogFilters else { return nil }
             return _search(task, parameters: parameters)
         }
     }
@@ -104,32 +96,17 @@ final class ConsoleSearchOperation {
     // MARK: Search (LoggerMessageEntity)
 
     private func _search(_ message: LoggerMessageEntity, parameters: ConsoleSearchParameters) -> [ConsoleSearchOccurrence]? {
-        guard isMatching(message, filters: parameters.filters) else {
-            return nil
-        }
-        guard !parameters.terms.isEmpty else {
+        guard let term = parameters.term else {
             return []
         }
-        return search(in: message, parameters: parameters)
-    }
-
-    private func isMatching(_ message: LoggerMessageEntity, filters: [ConsoleSearchFilter]) -> Bool {
-        Dictionary(grouping: filters.map(\.filter), by: \.name)
-            .compactMap { $0.value as? ([any ConsoleSearchLogFilterProtocol]) }
-            .allSatisfy { filters in
-                filters.contains { $0.isMatch(message) }
-            }
-    }
-
-    private func search(in message: LoggerMessageEntity, parameters: ConsoleSearchParameters) -> [ConsoleSearchOccurrence]? {
         var occurrences: [ConsoleSearchOccurrence] = []
         let scopes = parameters.scopes.isEmpty ? ConsoleSearchScope.allCases : parameters.scopes
         for scope in scopes {
             switch scope {
             case .message:
-                occurrences += ConsoleSearchOperation.search(message.text, parameters, .message)
+                occurrences += ConsoleSearchOperation.search(message.text, term, .message)
             case .metadata:
-                occurrences += ConsoleSearchOperation.search(message.rawMetadata, parameters, .metadata)
+                occurrences += ConsoleSearchOperation.search(message.rawMetadata, term, .metadata)
             default:
                 break
             }
@@ -140,24 +117,9 @@ final class ConsoleSearchOperation {
     // MARK: Search (NetworkTaskEntity)
 
     private func _search(_ task: NetworkTaskEntity, parameters: ConsoleSearchParameters) -> [ConsoleSearchOccurrence]? {
-        guard isMatching(task, filters: parameters.filters) else {
-            return nil
-        }
-        guard !parameters.terms.isEmpty else {
+        guard let term = parameters.term else {
             return []
         }
-        return search(in: task, parameters: parameters)
-    }
-
-    private func isMatching(_ task: NetworkTaskEntity, filters: [ConsoleSearchFilter]) -> Bool {
-        Dictionary(grouping: filters.map(\.filter), by: \.name)
-            .compactMap { $0.value as? ([any ConsoleSearchNetworkFilterProtocol]) }
-            .allSatisfy { filters in
-                filters.contains { $0.isMatch(task) }
-            }
-    }
-
-    private func search(in task: NetworkTaskEntity, parameters: ConsoleSearchParameters) -> [ConsoleSearchOccurrence]? {
         var occurrences: [ConsoleSearchOccurrence] = []
         let scopes = parameters.scopes.isEmpty ? ConsoleSearchScope.allCases : parameters.scopes
         for scope in scopes {
@@ -166,28 +128,28 @@ final class ConsoleSearchOperation {
                 if var components = URLComponents(string: task.url ?? "") {
                     components.queryItems = nil
                     if let url = components.url?.absoluteString {
-                        occurrences += ConsoleSearchOperation.search(url, parameters, scope)
+                        occurrences += ConsoleSearchOperation.search(url, term, scope)
                     }
-                }
-            case .originalRequestHeaders:
-                if let headers = task.originalRequest?.httpHeaders {
-                    occurrences += ConsoleSearchOperation.search(headers, parameters, scope)
-                }
-            case .currentRequestHeaders:
-                if let headers = task.currentRequest?.httpHeaders {
-                    occurrences += ConsoleSearchOperation.search(headers, parameters, scope)
                 }
             case .requestBody:
                 if let string = task.requestBody.flatMap(service.getBodyString) {
-                    occurrences += ConsoleSearchOperation.search(string, parameters, scope)
+                    occurrences += ConsoleSearchOperation.search(string, term, scope)
                 }
-            case .responseHeaders:
-                if let headers = task.response?.httpHeaders {
-                    occurrences += ConsoleSearchOperation.search(headers, parameters, scope)
+            case .originalRequestHeaders:
+                if let headers = task.originalRequest?.httpHeaders {
+                    occurrences += ConsoleSearchOperation.search(headers, term, scope)
+                }
+            case .currentRequestHeaders:
+                if let headers = task.currentRequest?.httpHeaders {
+                    occurrences += ConsoleSearchOperation.search(headers, term, scope)
                 }
             case .responseBody:
                 if let string = task.responseBody.flatMap(service.getBodyString) {
-                    occurrences += ConsoleSearchOperation.search(string, parameters, scope)
+                    occurrences += ConsoleSearchOperation.search(string, term, scope)
+                }
+            case .responseHeaders:
+                if let headers = task.response?.httpHeaders {
+                    occurrences += ConsoleSearchOperation.search(headers, term, scope)
                 }
             case .message, .metadata:
                 break // Applies only to LoggerMessageEntity
@@ -196,37 +158,26 @@ final class ConsoleSearchOperation {
         return occurrences.isEmpty ? nil : occurrences
     }
 
-    private static  func search(_ data: Data, _ parameters: ConsoleSearchParameters, _ scope: ConsoleSearchScope) -> [ConsoleSearchOccurrence] {
+    private static  func search(_ data: Data, _ term: ConsoleSearchTerm, _ scope: ConsoleSearchScope) -> [ConsoleSearchOccurrence] {
         guard let content = String(data: data, encoding: .utf8) else {
             return []
         }
-        return search(content, parameters, scope)
+        return search(content, term, scope)
     }
 
-    private static func search(_ content: String, _ parameters: ConsoleSearchParameters, _ scope: ConsoleSearchScope) -> [ConsoleSearchOccurrence] {
-        var remainingMatchedTerms = Set(parameters.terms)
+    private static func search(_ content: String, _ term: ConsoleSearchTerm, _ scope: ConsoleSearchScope) -> [ConsoleSearchOccurrence] {
         var matches: [ConsoleSearchMatch] = []
         var lineCount = 0
         content.enumerateLines { line, stop in
             lineCount += 1
-            for term in parameters.terms {
-                for range in line.ranges(of: term.text, options: term.options) {
-                    let match = ConsoleSearchMatch(line: line, lineNumber: lineCount, range: range, term: term)
-                    matches.append(match)
-                }
-                if !matches.isEmpty, !remainingMatchedTerms.isEmpty {
-                    remainingMatchedTerms.remove(term)
-                }
+            for range in line.ranges(of: term.text, options: term.options, limit: ConsoleSearchMatch.limit) {
+                let match = ConsoleSearchMatch(line: line, lineNumber: lineCount, range: range, term: term)
+                matches.append(match)
             }
-            if matches.count > ConsoleSearchMatch.limit, remainingMatchedTerms.isEmpty {
+            if matches.count > ConsoleSearchMatch.limit {
                 stop = true
             }
         }
-
-        guard remainingMatchedTerms.isEmpty else {
-            return [] // Has to match all
-        }
-
         return zip(matches.indices, matches).map { (index, match) in
             ConsoleSearchOccurrence(scope: scope, match: match, searchContext: .init(searchTerm: match.term, matchIndex: index))
         }
@@ -247,30 +198,37 @@ final class ConsoleSearchOperation {
     }
 }
 
-struct ConsoleSearchMatch {
-    let line: String
+package struct ConsoleSearchMatch {
+    package let line: String
     /// Starts with `1.
-    let lineNumber: Int
-    let range: Range<String.Index>
-    let term: ConsoleSearchTerm
+    package let lineNumber: Int
+    package let range: Range<String.Index>
+    package let term: ConsoleSearchTerm
 
-    static let limit = 1000
+    package static let limit = 6
+
+    package init(line: String, lineNumber: Int, range: Range<String.Index>, term: ConsoleSearchTerm) {
+        self.line = line
+        self.lineNumber = lineNumber
+        self.range = range
+        self.term = term
+    }
 }
 
-@available(iOS 15, *)
-final class ConsoleSearchService {
+@available(iOS 16, visionOS 1, *)
+package final class ConsoleSearchService {
     private let cache = NSCache<NSManagedObjectID, CachedString>()
 
-    init() {
+    package init() {
         cache.totalCostLimit = 16_000_000
         cache.countLimit = 1000
     }
 
-    func clearCache() {
+    package func clearCache() {
         cache.removeAllObjects()
     }
 
-    func getBodyString(for blob: LoggerBlobHandleEntity) -> String? {
+    package func getBodyString(for blob: LoggerBlobHandleEntity) -> String? {
         if let string = cache.object(forKey: blob.objectID)?.value {
             return string
         }

@@ -1,25 +1,27 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import CoreData
 import Pulse
 import Combine
 
-final class ConsoleRouter: ObservableObject {
+package final class ConsoleRouter: ObservableObject {
 #if os(macOS)
-    @Published var selection: ConsoleSelectedItem?
+    @Published package var selection: ConsoleSelectedItem?
 #endif
-    @Published var shareItems: ShareItems?
-    @Published var isShowingFilters = false
-    @Published var isShowingSettings = false
-    @Published var isShowingSessions = false
-    @Published var isShowingShareStore = false
+    @Published package var shareItems: ShareItems?
+    @Published package var isShowingFilters = false
+    @Published package var isShowingSettings = false
+    @Published package var isShowingSessions = false
+    @Published package var isShowingShareStore = false
+
+    package init() {}
 }
 
 #if os(macOS)
-enum ConsoleSelectedItem: Hashable {
+package enum ConsoleSelectedItem: Hashable {
     case entity(NSManagedObjectID)
     case occurrence(NSManagedObjectID, ConsoleSearchOccurrence)
 }
@@ -30,14 +32,14 @@ struct ConsoleRouterView: View {
     @EnvironmentObject var router: ConsoleRouter
 
     var body: some View {
-        if #available(iOS 15, *) {
+        if #available(iOS 16, macOS 13, *) {
             contents
         }
     }
 }
 
-#if os(iOS)
-@available(iOS 15, *)
+#if os(iOS) || os(visionOS)
+@available(iOS 16, visionOS 1, *)
 extension ConsoleRouterView {
     var contents: some View {
         Text("").invisible()
@@ -47,7 +49,7 @@ extension ConsoleRouterView {
             .sheet(isPresented: $router.isShowingShareStore) { destinationShareStore }
             .sheet(item: $router.shareItems, content: ShareView.init)
     }
-    
+
     private var destinationFilters: some View {
         NavigationView {
             ConsoleFiltersView()
@@ -89,7 +91,7 @@ extension ConsoleRouterView {
     private var destinationShareStore: some View {
         NavigationView {
             ShareStoreView(onDismiss: { router.isShowingShareStore = false })
-        }.backport.presentationDetents([.medium, .large])
+        }.presentationDetents([.medium, .large])
     }
 }
 
@@ -131,9 +133,24 @@ extension ConsoleRouterView {
 
 #else
 
+@available(macOS 13, *)
 extension ConsoleRouterView {
     var contents: some View {
         Text("").invisible()
+            .sheet(isPresented: $router.isShowingSettings) { destinationSettings }
+    }
+
+    private var destinationSettings: some View {
+        SettingsView()
+            .frame(width: 320, height: UserSettings.shared.isRemoteLoggingHidden ? 175 : 420)
+            .navigationTitle("Settings")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(action: { router.isShowingSettings = false }) {
+                        Text("Close")
+                    }
+                }
+            }
     }
 }
 

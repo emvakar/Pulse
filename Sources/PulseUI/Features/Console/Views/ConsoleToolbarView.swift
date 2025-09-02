@@ -1,33 +1,28 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(visionOS)
 
 import SwiftUI
 import Pulse
 import CoreData
 import Combine
 
-#if os(iOS)
-@available(iOS 15, *)
+@available(iOS 16, visionOS 1, *)
 struct ConsoleToolbarView: View {
     @EnvironmentObject private var environment: ConsoleEnvironment
 
     var body: some View {
-        if #available(iOS 16.0, *) {
-            ViewThatFits {
-                horizontal
-                vertical
-            }
-            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-        } else {
+        ViewThatFits {
             horizontal
+            vertical
         }
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
     }
 
     private var horizontal: some View {
-        HStack(alignment: .bottom, spacing: 0) {
+        HStack(alignment: .center, spacing: 0) {
             contents(isVertical: false)
         }
         .buttonStyle(.plain)
@@ -57,43 +52,6 @@ struct ConsoleToolbarView: View {
         }.padding(.trailing, isVertical ? 0 : -2)
     }
 }
-#elseif os(macOS)
-struct ConsoleToolbarView: View {
-    @EnvironmentObject private var environment: ConsoleEnvironment
-    @EnvironmentObject private var filters: ConsoleFiltersViewModel
-
-    var body: some View {
-        HStack {
-            if filters.options.focus != nil {
-                makeFocusedView()
-            } else {
-                ConsoleModePicker(environment: environment)
-            }
-            Spacer()
-            ConsoleListOptionsView()
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .pickerStyle(.inline)
-        }
-        .padding(.horizontal, 10)
-        .frame(height: 27, alignment: .center)
-    }
-
-    @ViewBuilder
-    private func makeFocusedView() -> some View {
-        Text("Focused Logs")
-            .foregroundColor(.secondary)
-            .font(.subheadline.weight(.medium))
-
-        Button(action: { filters.options.focus = nil }) {
-            Image(systemName: "xmark")
-        }
-        .foregroundColor(.secondary)
-        .buttonStyle(.plain)
-        .help("Unfocus")
-    }
-}
-#endif
 
 struct ConsoleModePicker: View {
     @ObservedObject private var environment: ConsoleEnvironment
@@ -107,14 +65,8 @@ struct ConsoleModePicker: View {
         self.tasksCounter = environment.taskCountObserver
     }
 
-#if os(macOS)
-    let spacing: CGFloat = 4
-#else
-    let spacing: CGFloat = 12
-#endif
-
     var body: some View {
-        HStack(spacing: spacing) {
+        HStack(spacing: 7) {
             ConsoleModeButton(title: "Network", details: CountFormatter.string(from: tasksCounter.count), isSelected: environment.mode == .network) {
                 environment.mode = .network
             }
@@ -144,66 +96,59 @@ private struct ConsoleToolbarTitle: View {
     }
 }
 
-private struct ConsoleModeButton: View {
-    let title: String
-    var details: String?
-    let isSelected: Bool
-    let action: () -> Void
+package struct ConsoleModeButton: View {
+    package let title: String
+    package var details: String?
+    package let isSelected: Bool
+    package let action: () -> Void
 
-#if os(macOS)
-    var body: some View {
-        InlineTabBarItem(title: title, details: details, isSelected: isSelected, action: action)
+    package init(title: String, details: String? = nil, isSelected: Bool, action: @escaping () -> Void) {
+        self.title = title
+        self.details = details
+        self.isSelected = isSelected
+        self.action = action
     }
-#else
-    var body: some View {
+
+    package var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(title)
-                    .foregroundColor(isSelected ? Color.accentColor : Color.secondary)
+                    .foregroundColor(isSelected ? Color.white : Color.secondary)
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
                     .allowsTightening(true)
                 if let details = details {
-                    Text("(\(details))")
-                        .foregroundColor(isSelected ? Color.accentColor.opacity(0.7) : Color.secondary.opacity(0.7))
-                        .font(.subheadline)
+                    Text("\(details)")
+                        .foregroundColor(isSelected ? Color.white.opacity(0.7) : Color.secondary.opacity(0.7))
+                        .font(.footnote)
+                        .monospacedDigit()
                         .lineLimit(1)
                         .allowsTightening(true)
                 }
             }
+            .padding(EdgeInsets(top: 8, leading: 9, bottom: 8, trailing: 8))
+            .background(isSelected ? Color.accentColor : Color(.secondarySystemFill).opacity(0.8))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
     }
-#endif
 }
 
-@available(iOS 15, *)
+@available(iOS 16, visionOS 1, *)
 struct ConsoleListOptionsView: View {
     @EnvironmentObject private var filters: ConsoleFiltersViewModel
 
     var body: some View {
-#if PULSE_STANDALONE_APP
-        SelectableButton(image: Image(systemName: "exclamationmark.octagon"), isSelected: $filters.options.isOnlyErrors)
-            .keyboardShortcut("e", modifiers: [.command, .shift])
-            .help("Toggle Show Only Errors (⇧⌘E)")
-#elseif os(macOS)
-        Button(action: { filters.options.isOnlyErrors.toggle() }) {
-            Image(systemName: filters.options.isOnlyErrors ? "exclamationmark.octagon.fill" : "exclamationmark.octagon")
-                .foregroundColor(filters.options.isOnlyErrors ? .red : .primary)
-        }
-        .buttonStyle(.plain)
-        .keyboardShortcut("e", modifiers: [.command, .shift])
-        .help("Toggle Show Only Errors (⇧⌘E)")
-#else
         Button(action: { filters.options.isOnlyErrors.toggle() }) {
             Text(Image(systemName: filters.options.isOnlyErrors ? "exclamationmark.octagon.fill" : "exclamationmark.octagon"))
                 .font(.body)
-                .foregroundColor(.accentColor)
+                .foregroundColor(filters.options.isOnlyErrors ? .white : .secondary)
         }
         .cornerRadius(4)
-        .padding(.leading, 1)
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-#endif
+        .padding(7)
+        .background(filters.options.isOnlyErrors ? .red : Color(.secondarySystemFill).opacity(0.8))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 

@@ -1,4 +1,152 @@
+# Pulse 5.x
+
+## Pulse 5.1.2
+
+*Oct 10, 2024*
+
+- Fix an issue with `isAutomaticConnectionEnabled` not starting the browser the first time it's enabled
+- Fix crash when exporting HAR file by @rounak in https://github.com/kean/Pulse/pull/299
+- Fix concurrency issue in `StoreDetailsViewModel` by @ejensen in https://github.com/kean/Pulse/pull/302
+- Update the deep search. It will now show all search scopes found and only one match per scope. You can tap on a match to see the scope with a prepopulated search query to see the remaining items.
+- Fix an issue with deep search not working for request and response headers
+
+## Pulse 5.1.1
+
+*Sep 19, 2024*
+
+- Implement deep JSON redaction by @briancordanyoung in https://github.com/kean/Pulse/pull/292
+- Fix a CoreData multithreading issue in `LoggerStore.info()` by @ejensen in https://github.com/kean/Pulse/pull/293
+- Fix `ConsoleView` focus state clipping on tvOS by @ejensen in https://github.com/kean/Pulse/pull/295
+- Revert the removal of the `NetworkLogger`’s convenience initializer by @ejensen in https://github.com/kean/Pulse/pull/294
+
+## Pulse 5.1
+
+*Sep 16, 2024*
+
+- Introduce an enhanced design for console cells with improved information hierarchy. It has multiple tweaks, but the main change is how the URLs are formatted. By default, the console will now show only the path with a host as a secondary field below it.
+- Add new convenience APIs for accessing messages and tasks stored in the logger: `LoggerStore/message(sortDescriptors:predicate:)` and `LoggerStore/tasks(sortDescriptors:predicate:)`. Deprecate `allTasks` and `allMessages`.
+- Fix an issue with thumbnails for image responses being too aggressively compressed and add `LoggerStore.ThumbnailOptions` to make it customizable
+- Update image response viewer to show thumbnails at a 2x resolution
+- Display thumbnail resolution in the response viewer
+- Fix an issue with app icons send too blurry to the Pulse Pro app
+- Improve support for `.inMemory` store option, which is now guaranteed to not write anything on disk, including the store manifest. It also no longer requires the `.create` option like the regular store and the `storeURL` parameter can point to anything, including `/dev/null`.
+- Deprecate `UserSettings.displayHeaders` (user new `ConsoleListDisplaySettings` instead)
+- Fix xcprivacy warnings when used with SwiftPM, thanks to @alphatroya
+- Performance optimizations
+
+## Pulse 5.0
+
+*Sep 4, 2024*
+
+### Announcement
+
+Pulse [macOS and iOS apps](https://pulselogger.com) are now [available on the App Store](https://apps.apple.com/us/app/pulse-network-logger/id6661031747). The apps are indispensable for viewing logs collected by the Pulse SDK and debugging your apps in real-time with features like response mocking. You can learn more about the apps in the [announcement](https://pulselogger.com/2024/08/31/pulse-is-on-the-app-store/).
+
+
+### Requirements
+
+- Swift 5.10 (Xcode 15.3)
+ -iOS 15, tvOS 15, macOS 12, watchOS 8, visionOS 1
+
+### Changes
+
+Pulse SDK 5.0 greatly simplifies the integration experience and introduces two new ways for capturing network traffic.
+
+- Add compatibility with Swift 6 (not official until Xcode 16 RC ships)
+- Reduce the size of the framework by nearly 15%
+- Add a new `PulseProxy` module for automatic capturing of all network traffic from the app with a single line – the quickest way to try Pulse
+- Add new `URLSessionProtocol` and `URLSessionProxy` as a new recommended way to track network traffic and enable other Pulse features like response mocking
+- Learn more about the new network logging method in the fully rewritten [Getting Started](https://kean-docs.github.io/pulse/documentation/pulse/gettingstarted/) and [Network Logging & Debugging](https://kean-docs.github.io/pulse/documentation/pulse/networklogging-article) guides
+- Add `RemoteLogger.isAutomaticConnectionEnabled` property to allow automatic connection to Pulse apps
+- Add and document the new public `MockingURLProtocol` used to enable network debugging features of Pulse apps. It is registered automatically with the new `URLSessionProxy`
+- Add `@MainActor` to a few main-thread confined types like `RemoteLogger`
+- Add new `UserSettings` properties: `isRemoteLoggingHidden` and `allowedShareStoreOutputs`, 
+- Increase the default `LoggerStore` size limit from 128 MB to 256 MB and response body size limit from 5 MB to 8 MB
+- Add support for changing `LoggerStore.shared.configuration` to make it easier to configure the default store
+`NetworkLogger.shared` and `LoggerStore.shared` can now be both replaced with your custom instances and in any order with any other operations.
+- Update`RemoteLogger.Connection` to perform work on the background queue so that Pulse now runs almost no code on the main queue
+- Make `LoggerStore.info` an async method
+- Fix export of PDF in dark mode (https://github.com/kean/Pulse/pull/288), thanks to @ilyalehchylin
+`LoggerStore/export` no longer returns `LoggerStore.Info`
+- Add `.create` and `.sweep` options to the default `LoggerStore `init`
+- Remove the console for MacOS as it is no longer feasible to maintain the reusable code between Pulse SDK and Pulse standalone app for Mac. If you are using the console for macOS, please consider using the standalone Pulse app.
+- Remove some of the text-based search filters, which wasn’t the right UX for a phone. In upcoming versions, it will be replaced with convenient controls.
+- Remove deprecated `LoggerStore.copy(to:)` and `LoggerStore.pins`
+- Remove support for exporting store as a package (`DocumentType.package`)
+- Bug fixes and performance improvements
+
 # Pulse 4.x
+
+## Pulse 4.2.7
+
+*Jun 23, 2024*
+
+- Remove usage of APIs requiring iOS 17 at runtime by @hallee in https://github.com/kean/Pulse/pull/265
+
+## Pulse 4.2.6
+
+*Jun 22, 2024*
+
+- Disable Swift 6 compatibility in Swift package to ensure Pulse compiles if added as a dependency under Xcode 16 by @NachoSoto in https://github.com/kean/Pulse/pull/264
+- Fix some of the Swift 6 errors
+- (Internal) Move `Identifiable` conformances to `Pulse` to remove the "retroactive" conformance warnings in Swift 6 
+
+## Pulse 4.2.5
+
+*Jun 19, 2024*
+
+- Fix https://github.com/kean/Pulse/issues/263 – crash when tapping "Show All" in a grouped list of logs
+
+## Pulse 4.2.4
+
+*Jun 8, 2024*
+
+- Fix an order of exported items by @goranbrl in https://github.com/kean/Pulse/pull/261
+
+## Pulse 4.2.3
+
+*Jun 3, 2024*
+
+- Fix: wrong background context for filtering entities during export by @jasesuperhero in https://github.com/kean/Pulse/pull/259
+
+## Pulse 4.2.2
+
+*Jun 2, 2024*
+
+- Fix https://github.com/kean/Pulse/issues/257, an issue with search only showing top 10 results. If there are more results, it will now indicate that in the UI and will load them automatically when you scroll to the bottom of the list.
+
+## Pulse 4.2.1
+
+*May 23, 2024*
+
+- Fix task description not being used with URLSessionProxyDelegate by @alexjameslittle in https://github.com/kean/Pulse/pull/255
+
+## Pulse 4.2.0
+
+*May 19, 2024*
+
+- Add `URLSession.taskDescription` support (closes https://github.com/kean/Pulse/issues/251). The console will now use `.taskDescription` instead of the original request URL. This behavior can be customized using the new `ConsoleViewDelegate`.
+- Fix https://github.com/kean/Pulse/issues/244, an issue with timeout interval not being recorded.
+- Fix https://github.com/kean/Pulse/issues/230, occasional crash in remote logger
+
+## Pulse 4.1.1
+
+*May 6, 2024*
+
+- Fix https://github.com/kean/Pulse/issues/246 – an issue with concurrent initialization of `LoggerStore` from multiple threads (workaround: initialize it in app delegate before other code runs)
+- Add `@MainActor` attribute to `RemoteLogger`  
+- Address Swift 6 warnings
+
+## Pulse 4.1.0
+
+*May 5, 2024*
+
+- Add initial visionOS support by @maximality in https://github.com/kean/Pulse/pull/239
+- Add privacy manifests by @samlapse in https://github.com/kean/Pulse/pull/252
+- Add an option to use in-memory CoreData for logs by @z-turk3 in https://github.com/kean/Pulse/pull/247
+- Add initial support for exporting logs as HAR file by @jjotaum in https://github.com/kean/Pulse/pull/236
+- Fix an issue with the "Unsupported OS version" copy by @Mcrich23 in https://github.com/kean/Pulse/pull/240
+- Fix https://github.com/kean/Pulse/issues/114: an issue with text writing direction to handle RTL languages by @Mr-Alirezaa in https://github.com/kean/Pulse/pull/233
 
 ## Pulse 4.0.5
 

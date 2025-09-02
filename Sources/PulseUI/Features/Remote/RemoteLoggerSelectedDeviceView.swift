@@ -1,12 +1,12 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Network
 import Pulse
 
-@available(iOS 15, *)
+@available(iOS 16, visionOS 1, *)
 struct RemoteLoggerSelectedDeviceView: View {
     @ObservedObject var logger: RemoteLogger = .shared
 
@@ -20,7 +20,7 @@ struct RemoteLoggerSelectedDeviceView: View {
                 makeStatusView(for: logger.connectionState)
             }
             Spacer()
-            if (server?.server.isProtected ?? false) {
+            if server?.server.isProtected ?? false {
                 Image(systemName: "lock.fill")
                     .foregroundColor(.separator)
             }

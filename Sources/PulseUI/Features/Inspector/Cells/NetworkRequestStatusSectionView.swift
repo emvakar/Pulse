@@ -1,11 +1,13 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
+
+#if !os(macOS)
 
 import SwiftUI
 import Pulse
 
-@available(iOS 15, *)
+@available(iOS 16, visionOS 1, *)
 struct NetworkRequestStatusSectionView: View {
     let viewModel: NetworkRequestStatusSectionViewModel
 
@@ -42,7 +44,7 @@ final class NetworkRequestStatusSectionViewModel {
 }
 
 #if DEBUG
-@available(iOS 15, *)
+@available(iOS 16, visionOS 1, *)
 struct NetworkRequestStatusSectionView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationView {
@@ -59,4 +61,6 @@ struct NetworkRequestStatusSectionView_Previews: PreviewProvider {
         }
     }
 }
+#endif
+
 #endif

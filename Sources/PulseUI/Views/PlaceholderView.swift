@@ -1,20 +1,20 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 
-struct PlaceholderView: View {
-    var imageName: String?
-    let title: String
-    var subtitle: String?
-    
+package struct PlaceholderView: View {
+    package var imageName: String?
+    package let title: String
+    package var subtitle: String?
+
 #if os(tvOS)
     private let iconSize: CGFloat = 150
 #else
     private let iconSize: CGFloat = 70
 #endif
-    
+
 #if os(macOS)
     private let maxWidth: CGFloat = .infinity
 #elseif os(tvOS)
@@ -22,8 +22,14 @@ struct PlaceholderView: View {
 #else
     private let maxWidth: CGFloat = 280
 #endif
-    
-    var body: some View {
+
+    package init(imageName: String? = nil, title: String, subtitle: String? = nil) {
+        self.imageName = imageName
+        self.title = title
+        self.subtitle = subtitle
+    }
+
+    package var body: some View {
         VStack {
             imageName.map(Image.init(systemName:))
                 .font(.system(size: iconSize, weight: .light))

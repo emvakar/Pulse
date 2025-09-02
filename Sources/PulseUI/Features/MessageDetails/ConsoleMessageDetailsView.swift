@@ -1,22 +1,26 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
-
-#if !PULSE_STANDALONE_APP
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 
-@available(iOS 15, *)
-struct ConsoleMessageDetailsView: View {
-    let message: LoggerMessageEntity
+#if os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
 
-#if os(iOS)
-    var body: some View {
+@available(iOS 16, macOS 13, visionOS 1, *)
+package struct ConsoleMessageDetailsView: View {
+    package let message: LoggerMessageEntity
+
+    package init(message: LoggerMessageEntity) {
+        self.message = message
+    }
+
+#if os(iOS) || os(visionOS)
+    package var body: some View {
         contents
-            .navigationBarTitle("", displayMode: .inline)
+            .inlineNavigationTitle("")
             .toolbar {
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .automatic) {
                     trailingNavigationBarItems
                 }
             }
@@ -27,10 +31,9 @@ struct ConsoleMessageDetailsView: View {
         NavigationLink(destination: ConsoleMessageMetadataView(message: message)) {
             Image(systemName: "info.circle")
         }
-        PinButton(viewModel: .init(message), isTextNeeded: false)
     }
 #elseif os(watchOS)
-    var body: some View {
+    package var body: some View {
         ScrollView {
             VStack(spacing: 8) {
                 NavigationLink(destination: ConsoleMessageMetadataView(message: message)) {
@@ -41,47 +44,8 @@ struct ConsoleMessageDetailsView: View {
         }
     }
 #elseif os(tvOS)
-    var body: some View {
+    package var body: some View {
         contents
-    }
-#elseif os(macOS)
-    @State private var selectedTab: ConsoleMessageTab = .message
-
-    var body: some View {
-        VStack(spacing: 0) {
-            toolbar
-            Divider()
-            selectedTabView
-        }
-    }
-
-    private var toolbar: some View {
-        HStack {
-            InlineTabBar(items: ConsoleMessageTab.allCases, selection: $selectedTab)
-            Spacer()
-            ButtonCloseDetailsView()
-        }
-        .padding(.horizontal, 10)
-        .offset(y: -2)
-        .frame(height: 27, alignment: .center)
-    }
-
-    @ViewBuilder
-    private var selectedTabView: some View {
-        switch selectedTab {
-        case .message:
-            RichTextView(viewModel: makeTextViewModel())
-        case .metadata:
-            ConsoleMessageMetadataView(message: message)
-        }
-    }
-
-    private enum ConsoleMessageTab: String, Identifiable, CaseIterable, CustomStringConvertible {
-        case message = "Messages"
-        case metadata = "Metadata"
-
-        var id: ConsoleMessageTab { self }
-        var description: String { self.rawValue }
     }
 #endif
 
@@ -92,14 +56,12 @@ struct ConsoleMessageDetailsView: View {
     }
 
     private func makeTextViewModel() -> RichTextViewModel {
-        let viewModel = RichTextViewModel(string: TextRenderer().preformatted(message.text))
-        viewModel.isFilterEnabled = true
-        return viewModel
+        RichTextViewModel(string: TextRenderer().preformatted(message.text))
     }
 }
 
 #if DEBUG
-@available(iOS 15, *)
+@available(iOS 16, macOS 13, visionOS 1, *)
 struct ConsoleMessageDetailsView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationView {
@@ -107,8 +69,13 @@ struct ConsoleMessageDetailsView_Previews: PreviewProvider {
         }
     }
 }
+#endif
 
-func makeMockMessage() -> LoggerMessageEntity {
+#endif
+
+#if DEBUG
+
+package func makeMockMessage() -> LoggerMessageEntity {
     let entity = LoggerMessageEntity(context: LoggerStore.mock.viewContext)
     entity.text = "test"
     entity.createdAt = Date()
@@ -120,6 +87,5 @@ func makeMockMessage() -> LoggerMessageEntity {
     entity.rawMetadata = "customKey: customValue"
     return entity
 }
-#endif
 
 #endif

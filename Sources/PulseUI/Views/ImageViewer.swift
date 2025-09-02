@@ -1,23 +1,23 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 
-struct ImageViewer: View {
-    let viewModel: ImagePreviewViewModel
+package struct ImageViewer: View {
+    package let viewModel: ImagePreviewViewModel
 
-    var body: some View {
+    package init(viewModel: ImagePreviewViewModel) {
+        self.viewModel = viewModel
+    }
+
+    package var body: some View {
         VStack(spacing: 16) {
-            Image(uxImage: viewModel.image)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(maxWidth: viewModel.image.size.width, maxHeight: viewModel.image.size.height)
-                .border(Color.separator, width: 0.5)
+            ImageThumbnailView(viewModel: viewModel)
 
             HStack {
-                TextView(string: viewModel.info)
+                TextView(string: TextRenderer().render(viewModel.info))
                 Spacer()
             }
 
@@ -26,11 +26,28 @@ struct ImageViewer: View {
     }
 }
 
-struct ImagePreviewViewModel {
-    let image: UXImage
-    let info: NSAttributedString
+package struct ImageThumbnailView: View {
+    let viewModel: ImagePreviewViewModel
 
-    init(image: UXImage, data: Data, context: FileViewerViewModel.Context) {
+    package init(viewModel: ImagePreviewViewModel) {
+        self.viewModel = viewModel
+    }
+
+    package var body: some View {
+        Image(uxImage: viewModel.image)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(maxWidth: viewModel.image.size.width * 0.5, maxHeight: viewModel.image.size.height * 0.5)
+            .border(Color.separator, width: 0.5)
+    }
+}
+
+package struct ImagePreviewViewModel {
+    package let image: UXImage
+    package let info: KeyValueSectionViewModel
+    package let context: FileViewerViewModelContext
+
+    package init(image: UXImage, data: Data, context: FileViewerViewModelContext) {
         func intValue(for key: String) -> Int? {
             context.metadata?[key].flatMap { Int($0) }
         }
@@ -55,18 +72,25 @@ struct ImagePreviewViewModel {
             }
         }
 
-        var info: [(String, String?)] = [
-            ("Resolution", originalImageSize.map { "\(Int($0.width)) × \(Int($0.height)) px" }),
+        let info: [(String, String?)] = [
+            ("Resolution", originalImageSize.map(formattedResolution)),
             ("Size", ByteCountFormatter.string(fromByteCount: context.originalSize)),
             ("Type", context.contentType?.rawValue),
-            ("Displayed", isShowingOriginal ? "original image" : "preview (original not saved)")
+            ("Stored", isShowingOriginal ? "Original" : "Thumbnail (\(formattedResolution(with: image.size)))")
         ]
-        if !isShowingOriginal {
-            info.append(("Preview Size (Decompressed)", ByteCountFormatter.string(fromByteCount: Int64(data.count))))
-        }
 
         self.image = image
-        let section = KeyValueSectionViewModel(title: "Image", color: .pink, items: info)
-        self.info = TextRenderer().render(section)
+        self.info = KeyValueSectionViewModel(title: "Image", color: .pink, items: info)
+        self.context = context
     }
+}
+
+private extension CGSize {
+    func scaled(by scale: CGFloat) -> CGSize {
+        CGSize(width: width * scale, height: width * height)
+    }
+}
+
+private func formattedResolution(with pixelSize: CGSize) -> String {
+    "\(Int(pixelSize.width)) × \(Int(pixelSize.height)) px"
 }

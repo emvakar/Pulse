@@ -1,14 +1,14 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 
 import SwiftUI
 import Pulse
 
 struct ConsoleSearchTimePeriodCell: View {
-    @Binding var selection: ConsoleFilers.Dates
+    @Binding var selection: ConsoleFilters.Dates
 
     var body: some View {
         DateRangePicker(title: "Start", date: $selection.startDate)

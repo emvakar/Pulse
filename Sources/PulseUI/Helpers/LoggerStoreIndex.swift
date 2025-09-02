@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import Foundation
 import CoreData
@@ -8,23 +8,30 @@ import Combine
 import Pulse
 
 /// Keeps track of hosts, paths, etc.
-final class LoggerStoreIndex: ObservableObject {
-    @Published private(set) var labels: Set<String> = []
-    @Published private(set) var files: Set<String> = []
-    @Published private(set) var hosts: Set<String> = []
-    @Published private(set) var paths: Set<String> = []
+package final class LoggerStoreIndex: ObservableObject {
+    @Published private(set) package var labels: Set<String> = []
+    @Published private(set) package var files: Set<String> = []
+    @Published private(set) package var hosts: Set<String> = []
+    @Published private(set) package var paths: Set<String> = []
 
-    private let store: LoggerStore
+    private let context: NSManagedObjectContext
     private var cancellable: AnyCancellable?
 
-    init(store: LoggerStore) {
-        self.store = store
+    convenience package init(store: LoggerStore) {
+        self.init(context: store.backgroundContext)
 
         store.backgroundContext.perform {
             self.prepopulate()
         }
         cancellable = store.events.receive(on: DispatchQueue.main).sink { [weak self] in
             self?.handle($0)
+        }
+    }
+
+    package init(context: NSManagedObjectContext) {
+        self.context = context
+        context.perform {
+            self.prepopulate()
         }
     }
 
@@ -45,9 +52,9 @@ final class LoggerStoreIndex: ObservableObject {
     }
 
     private func prepopulate() {
-        let files = store.backgroundContext.getDistinctValues(entityName: "LoggerMessageEntity", property: "file")
-        let labels = store.backgroundContext.getDistinctValues(entityName: "LoggerMessageEntity", property: "label")
-        let urls = store.backgroundContext.getDistinctValues(entityName: "NetworkTaskEntity", property: "url")
+        let files = context.getDistinctValues(entityName: "LoggerMessageEntity", property: "file")
+        let labels = context.getDistinctValues(entityName: "LoggerMessageEntity", property: "label")
+        let urls = context.getDistinctValues(entityName: "NetworkTaskEntity", property: "url")
 
         var hosts = Set<String>()
         var paths = Set<String>()

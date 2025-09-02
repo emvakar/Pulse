@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 #if os(tvOS)
 
@@ -14,10 +14,11 @@ struct NetworkInspectorView: View {
 
     @ObservedObject private var settings: UserSettings = .shared
     @Environment(\.store) private var store
+    @EnvironmentObject private var environment: ConsoleEnvironment
 
     var body: some View {
         contents
-            .inlineNavigationTitle(task.title)
+            .inlineNavigationTitle(task.getShortTitle(options: settings.listDisplayOptions))
     }
 
     var contents: some View {
@@ -25,6 +26,7 @@ struct NetworkInspectorView: View {
             Form { lhs }.frame(width: 740)
             Form { rhs }
         }
+        .disableScrollClip()
     }
 
     @ViewBuilder
@@ -66,6 +68,7 @@ struct NetworkInspectorView_Previews: PreviewProvider {
         NavigationView {
             NetworkInspectorView(task: LoggerStore.preview.entity(for: .login))
         }
+        .injecting(ConsoleEnvironment(store: .preview))
     }
 }
 #endif

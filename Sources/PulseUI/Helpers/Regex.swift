@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import Foundation
 
@@ -9,10 +9,6 @@ final class Regex {
 
     struct Options: OptionSet {
         let rawValue: Int
-
-        init(rawValue: Int) {
-            self.rawValue = rawValue
-        }
 
         static let caseInsensitive = Options(rawValue: 1 << 0)
         static let multiline = Options(rawValue: 1 << 1)

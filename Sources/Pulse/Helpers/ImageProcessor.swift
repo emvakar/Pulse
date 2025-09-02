@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import Foundation
 
@@ -19,6 +19,27 @@ import ImageIO
 #endif
 
 enum Graphics {
+    static func resize(_ image: PlatformImage, to size: CGSize) -> PlatformImage? {
+#if canImport(UIKit)
+        UIGraphicsBeginImageContextWithOptions(size, false, 1.0)
+        image.draw(in: CGRect(x: 0, y: 0, width: size.width, height: size.height))
+        let thumbnail = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return thumbnail
+#elseif canImport(AppKit)
+        let newImage = NSImage(size: size)
+        newImage.lockFocus()
+        image.draw(in: NSMakeRect(0, 0, size.width, size.height),
+             from: NSMakeRect(0, 0, image.size.width, image.size.height),
+             operation: .sourceOver,
+             fraction: CGFloat(1))
+        newImage.unlockFocus()
+        return newImage
+#else
+        return image
+#endif
+    }
+
     /// Creates an image thumbnail. Uses significantly less memory than other options.
     static func makeThumbnail(from data: Data, targetSize: CGFloat) -> PlatformImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else {
@@ -35,7 +56,7 @@ enum Graphics {
         return PlatformImage(cgImage: image)
     }
 
-    static func encode(_ image: PlatformImage) -> Data? {
+    static func encode(_ image: PlatformImage, compressionQuality: CGFloat = 0.8) -> Data? {
         guard let source = image.cgImage else {
             return nil
         }
@@ -49,7 +70,7 @@ enum Graphics {
             return nil
         }
         let options: NSDictionary = [
-            kCGImageDestinationLossyCompressionQuality: 0.33
+            kCGImageDestinationLossyCompressionQuality: compressionQuality
         ]
         CGImageDestinationAddImage(destination, source, options)
         CGImageDestinationFinalize(destination)

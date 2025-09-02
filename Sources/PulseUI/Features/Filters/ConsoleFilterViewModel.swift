@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import CoreData
 import Pulse
@@ -11,16 +11,16 @@ final class ConsoleFiltersViewModel: ObservableObject {
     @Published var mode: ConsoleMode = .all
     @Published var options = ConsoleDataSource.PredicateOptions()
 
-    var criteria: ConsoleFilers {
+    var criteria: ConsoleFilters {
         get { options.filters }
         set { options.filters = newValue }
     }
 
-    let defaultCriteria: ConsoleFilers
+    let defaultCriteria: ConsoleFilters
 
     // TODO: Refactor
     let entities = CurrentValueSubject<[NSManagedObject], Never>([])
-    
+
     init(options: ConsoleDataSource.PredicateOptions) {
         self.options = options
         self.defaultCriteria = options.filters

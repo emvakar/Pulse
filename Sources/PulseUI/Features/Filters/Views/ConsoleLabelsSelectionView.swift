@@ -1,12 +1,14 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 import Combine
 
-@available(iOS 15, *)
+#if !os(macOS)
+
+@available(iOS 16, visionOS 1, *)
 struct ConsoleLabelsSelectionView: View {
     @ObservedObject var viewModel: ConsoleFiltersViewModel
     @EnvironmentObject private var index: LoggerStoreIndex
@@ -23,8 +25,10 @@ struct ConsoleLabelsSelectionView: View {
     }
 }
 
-private extension ConsoleFiltersViewModel {
-    func bindingForSelectedLabels(index: LoggerStoreIndex) -> Binding<Set<String>> {
+#endif
+
+extension ConsoleFiltersViewModel {
+    package func bindingForSelectedLabels(index: LoggerStoreIndex) -> Binding<Set<String>> {
         Binding(get: {
             if let focused = self.criteria.messages.labels.focused {
                 return [focused]

@@ -1,46 +1,46 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import Foundation
 import Network
 import CryptoKit
 import OSLog
 
-#if PULSE_STANDALONE_APP
-import Pulse
-#endif
-
-protocol RemoteLoggerConnectionDelegate: AnyObject {
+@MainActor
+package protocol RemoteLoggerConnectionDelegate: AnyObject {
     func connection(_ connection: RemoteLogger.Connection, didChangeState newState: NWConnection.State)
     func connection(_ connection: RemoteLogger.Connection, didReceiveEvent event: RemoteLogger.Connection.Event)
 }
 
 extension RemoteLogger {
-    final class Connection {
-        var endpoint: NWEndpoint { connection.endpoint }
+    package final class Connection: @unchecked Sendable  {
+        package var endpoint: NWEndpoint { connection.endpoint }
         private let connection: NWConnection
         private var buffer = Data()
         private var id: UInt32 = 0
         private var handlers: [UInt32: (Data?, Error?) -> Void] = [:]
         private let log: OSLog
 
-        weak var delegate: RemoteLoggerConnectionDelegate?
+        package weak var delegate: RemoteLoggerConnectionDelegate?
 
-        convenience init(endpoint: NWEndpoint, using parameters: NWParameters) {
+        private let queue = DispatchQueue(label: "com.github.kean.pulse.remote-logger-connection")
+
+        package convenience init(endpoint: NWEndpoint, using parameters: NWParameters) {
             self.init(NWConnection(to: endpoint, using: parameters))
         }
 
-        init(_ connection: NWConnection) {
+        package init(_ connection: NWConnection, delegate: RemoteLoggerConnectionDelegate? = nil) {
             self.connection = connection
+            self.delegate = delegate
 
             let isLogEnabled = UserDefaults.standard.bool(forKey: "com.github.kean.pulse.debug")
             self.log = isLogEnabled ? OSLog(subsystem: "com.github.kean.pulse", category: "RemoteLogger") : .disabled
         }
 
-        func start(on queue: DispatchQueue) {
+        package func start() {
             connection.stateUpdateHandler = { [weak self] state in
-                guard let self = self else { return }
+                guard let self else { return }
                 DispatchQueue.main.async {
                     self.delegate?.connection(self, didChangeState: state)
                 }
@@ -49,15 +49,15 @@ extension RemoteLogger {
             connection.start(queue: queue)
         }
 
-        enum Event {
+        package enum Event {
             case packet(Packet)
             case error(Error)
             case completed
         }
 
-        struct Packet {
-            let code: UInt8
-            let body: Data
+        package struct Packet {
+            package let code: UInt8
+            package let body: Data
         }
 
         private func receive() {
@@ -76,7 +76,7 @@ extension RemoteLogger {
             }
         }
 
-        private func process(data freshData: Data) {
+        private nonisolated func process(data freshData: Data) {
             guard !freshData.isEmpty else { return }
 
             var freshData = freshData
@@ -129,14 +129,13 @@ extension RemoteLogger {
                 }
             }
         }
-        
-        func send(code: UInt8, data: Data) {
+
+        package func send(code: UInt8, data: Data) {
             do {
                 let data = try encode(code: code, body: data)
-                let log = self.log
-                connection.send(content: data, completion: .contentProcessed({ error in
+                connection.send(content: data, completion: .contentProcessed({ [weak self] error in
                     if let error {
-                        os_log("Failed to send data: %{public}@", log: log, type: .error, "\(error)")
+                        self?.logSendDataError(error)
                     }
                 }))
             } catch {
@@ -144,7 +143,11 @@ extension RemoteLogger {
             }
         }
 
-        func send<T: Encodable>(code: UInt8, entity: T) {
+        private func logSendDataError(_ error: Error) {
+            os_log("Failed to send data: %{public}@", log: log, type: .error, "\(error)")
+        }
+
+        package func send<T: Encodable>(code: UInt8, entity: T) {
             do {
                 let data = try JSONEncoder().encode(entity)
                 send(code: code, data: data)
@@ -152,24 +155,24 @@ extension RemoteLogger {
                 os_log("Failed to encode a packet: %{public}@", log: log, type: .error, "\(error)")
             }
         }
-    
-        func sendMessage<T: Encodable>(path: Path, entity: T, _ completion: ((Data?, Error?) -> Void)? = nil) {
+
+        package func sendMessage<T: Encodable>(path: Path, entity: T, _ completion: ((Data?, Error?) -> Void)? = nil) {
             do {
                 sendMessage(path: path, data: try JSONEncoder().encode(entity), completion)
             } catch {
                 os_log("Failed to send a message: %{public}@", log: log, type: .error, "\(error)")
             }
         }
-        
-        func sendMessage(path: Path, data: Data? = nil, _ completion: ((Data?, Error?) -> Void)? = nil) {
+
+        package func sendMessage(path: Path, data: Data? = nil, _ completion: ((Data?, Error?) -> Void)? = nil) {
             let message = Message(id: id, options: [], path: path, data: data ?? Data())
-            
+
             if id == UInt32.max {
                 id = 0
             } else {
                 id += 1
             }
-            
+
             if let completion = completion {
                 let id = message.id
                 handlers[message.id] = completion
@@ -179,7 +182,7 @@ extension RemoteLogger {
                     }
                 }
             }
-            
+
             do {
                 let data = try Message.encode(message)
                 send(code: .message, data: data)
@@ -188,15 +191,15 @@ extension RemoteLogger {
             }
         }
 
-        func sendResponse<T: Encodable>(for message: Message, entity: T) {
+        package func sendResponse<T: Encodable>(for message: Message, entity: T) {
             do {
                 sendResponse(for: message, data: try JSONEncoder().encode(entity))
             } catch {
                 os_log("Failed to encode a response: %{public}@", log: log, type: .error, "\(error)")
             }
         }
-        
-        func sendResponse(for message: Message, data: Data) {
+
+        package func sendResponse(for message: Message, data: Data) {
             let message = Message(id: message.id, options: [.response], path: message.path, data: data)
             do {
                 let data = try Message.encode(message)
@@ -205,8 +208,8 @@ extension RemoteLogger {
                 os_log("Failed to encode a response: %{public}@", log: log, type: .error, "\(error)")
             }
         }
-        
-        func cancel() {
+
+        package func cancel() {
             connection.cancel()
         }
     }
@@ -215,7 +218,7 @@ extension RemoteLogger {
 // MARK: Helpers
 
 extension RemoteLogger {
-    static func encode(code: UInt8, body: Data) throws -> Data {
+    nonisolated static func encode(code: UInt8, body: Data) throws -> Data {
         guard body.count < UInt32.max else {
             throw PacketParsingError.unsupportedContentSize
         }
@@ -228,7 +231,7 @@ extension RemoteLogger {
         return data
     }
 
-    static func decode(buffer: Data) throws -> (Connection.Packet, Int) {
+    nonisolated static func decode(buffer: Data) throws -> (Connection.Packet, Int) {
         let header = try PacketHeader(data: buffer)
         guard buffer.count >= header.compressedPacketLength else {
             throw PacketParsingError.notEnoughData
@@ -264,7 +267,7 @@ extension RemoteLogger {
 }
 
 extension NWParameters {
-    convenience init(passcode: String) {
+    package convenience init(passcode: String) {
         let tcpOptions = NWProtocolTCP.Options()
         tcpOptions.enableKeepalive = true
         tcpOptions.keepaliveIdle = 4

@@ -1,39 +1,24 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 import Combine
 
-@available(iOS 15, macOS 13, *)
+#if os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
+
+@available(iOS 16, visionOS 1, *)
 struct ConsoleFiltersView: View {
     @EnvironmentObject var environment: ConsoleEnvironment // important: reloads mode
     @EnvironmentObject var viewModel: ConsoleFiltersViewModel
 
     var body: some View {
-#if os(iOS) || os(watchOS) || os(tvOS)
         Form {
             form
         }
-#if os(iOS)
+#if os(iOS) || os(visionOS)
         .navigationBarItems(leading: buttonReset)
-#endif
-#else
-        VStack(spacing: 0) {
-            ScrollView {
-                form
-            }
-            HStack {
-                Text(environment.mode == .network ? "Network Filters" : "Message Filters")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                Spacer()
-                buttonReset
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 34, alignment: .center)
-        }
 #endif
     }
 
@@ -46,24 +31,13 @@ struct ConsoleFiltersView: View {
         sessionsSection
 
         if environment.mode == .network {
-#if PULSE_STANDALONE_APP
-            customNetworkFiltersSection
-#endif
             domainsSection
-
-#if PULSE_STANDALONE_APP
-            responseSection
-            networkingSection
-#endif
         } else {
-#if PULSE_STANDALONE_APP
-            customMessageFiltersSection
-#endif
             logLevelsSection
             labelsSection
         }
 
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(visionOS)
         timePeriodSection
 #endif
     }
@@ -76,7 +50,7 @@ struct ConsoleFiltersView: View {
 
 // MARK: - ConsoleFiltersView (Sections)
 
-@available(iOS 15, macOS 13, *)
+@available(iOS 16, visionOS 1, *)
 extension ConsoleFiltersView {
     var sessionsSection: some View {
         ConsoleSection(isDividerHidden: true, header: {
@@ -86,7 +60,7 @@ extension ConsoleFiltersView {
         })
     }
 
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(visionOS)
     var timePeriodSection: some View {
         ConsoleSection(header: {
             ConsoleSectionHeader(icon: "calendar", title: "Time Period", filter: $viewModel.criteria.shared.dates)
@@ -124,20 +98,9 @@ extension ConsoleFiltersView {
 #if DEBUG
 import CoreData
 
-@available(iOS 15, macOS 13, *)
+@available(iOS 16, visionOS 1, *)
 struct ConsoleFiltersView_Previews: PreviewProvider {
     static var previews: some View {
-#if os(macOS)
-        Group {
-            makePreview(isOnlyNetwork: false)
-                .previewLayout(.fixed(width: 280, height: 900))
-                .previewDisplayName("Messages")
-
-            makePreview(isOnlyNetwork: true)
-                .previewLayout(.fixed(width: 280, height: 900))
-                .previewDisplayName("Network")
-        }
-#else
         Group {
             NavigationView {
                 makePreview(isOnlyNetwork: false)
@@ -152,14 +115,13 @@ struct ConsoleFiltersView_Previews: PreviewProvider {
             .previewDisplayName("Network")
         }
         .injecting(.init(store: .mock))
-#endif
     }
 }
 
-@available(iOS 15, macOS 13, *)
+@available(iOS 16, macOS 13, visionOS 1, *)
 private func makePreview(isOnlyNetwork: Bool) -> some View {
     let store = LoggerStore.mock
-    let entities: [NSManagedObject] = try! isOnlyNetwork ? store.allTasks() : store.allMessages()
+    let entities: [NSManagedObject] = try! isOnlyNetwork ? store.tasks() : store.messages()
     let viewModel = ConsoleFiltersViewModel(options: .init())
     viewModel.entities.send(entities)
     viewModel.mode = isOnlyNetwork ? .network : .all
@@ -167,4 +129,6 @@ private func makePreview(isOnlyNetwork: Bool) -> some View {
         .injecting(ConsoleEnvironment(store: store))
         .environmentObject(viewModel)
 }
+#endif
+
 #endif

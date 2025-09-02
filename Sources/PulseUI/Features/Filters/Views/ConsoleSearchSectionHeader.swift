@@ -1,15 +1,16 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
+
+#if os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
 
 struct ConsoleSectionHeader: View {
     let icon: String
     let title: String
     let reset: () -> Void
     let isDefault: Bool
-    @Binding var isEnabled: Bool
 
     init<Filter: ConsoleFilterProtocol>(
         icon: String,
@@ -21,36 +22,8 @@ struct ConsoleSectionHeader: View {
         self.title = title
         self.reset = { filter.wrappedValue = `default` ?? Filter() }
         self.isDefault = filter.wrappedValue == `default` ?? Filter()
-        self._isEnabled = filter.isEnabled
     }
 
-#if os(macOS)
-    var body: some View {
-        HStack {
-            HStack(spacing: 4) {
-                Image(systemName: icon)
-                    .foregroundColor(.secondary)
-                Text(title)
-                    .lineLimit(1)
-                    .font(.headline)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
-            if !isDefault {
-                Button(action: reset) {
-                    Image(systemName: "arrow.uturn.left")
-                }
-                .foregroundColor(.secondary)
-                .disabled(isDefault)
-                Button(action: { isEnabled.toggle() }) {
-                    Image(systemName: isEnabled ? "checkmark.circle.fill" : "circle")
-                        .foregroundColor(isDefault ? .secondary : .blue)
-                }
-                .disabled(isDefault)
-            }
-        }.buttonStyle(.plain)
-    }
-#elseif os(iOS)
     var body: some View {
         HStack {
             Text(title)
@@ -69,9 +42,6 @@ struct ConsoleSectionHeader: View {
             }
         }
     }
-#else
-    var body: some View {
-        Text(title)
-    }
-#endif
 }
+
+#endif

@@ -1,17 +1,22 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 import Charts
 
-@available(iOS 16.0, tvOS 16.0, macOS 13.0, watchOS 9.0, *)
-struct LoggerStoreSizeChart: View {
-    let info: LoggerStore.Info
-    let sizeLimit: Int64?
+@available(iOS 16, tvOS 16, macOS 13, watchOS 9, visionOS 1, *)
+package struct LoggerStoreSizeChart: View {
+    package let info: LoggerStore.Info
+    package let sizeLimit: Int64?
 
-    var body: some View {
+    package init(info: LoggerStore.Info, sizeLimit: Int64?) {
+        self.info = info
+        self.sizeLimit = sizeLimit
+    }
+
+    package var body: some View {
         VStack {
             HStack {
                 Text("Logs")
@@ -63,14 +68,14 @@ struct LoggerStoreSizeChart: View {
     }
 }
 
-@available(iOS 16.0, tvOS 16.0, macOS 13.0, watchOS 9.0, *)
+@available(iOS 16, tvOS 16, macOS 13, watchOS 9.0, visionOS 1, *)
 private enum Category: String, Hashable, Plottable {
     case messages = "Logs"
     case responses = "Blobs"
     case free = "Free"
 }
 
-@available(iOS 16.0, tvOS 16.0, macOS 13.0, watchOS 9.0, *)
+@available(iOS 16, tvOS 16, macOS 13, watchOS 9.0, visionOS 1, *)
 private struct Series: Identifiable {
     let category: Category
     let bytes: Int64
@@ -78,12 +83,12 @@ private struct Series: Identifiable {
 }
 
 #if DEBUG
-@available(iOS 16.0, tvOS 16.0, macOS 13.0, watchOS 9.0, *)
-struct LoggerStoreSizeChart_Previews: PreviewProvider {
-    static var previews: some View {
-        LoggerStoreSizeChart(info: try! LoggerStore.mock.info(), sizeLimit: 512 * 1024)
-            .padding()
-            .previewLayout(.sizeThatFits)
-    }
-}
+//@available(iOS 16, tvOS 16, macOS 13, watchOS 9.0, visionOS 1, *)
+//struct LoggerStoreSizeChart_Previews: PreviewProvider {
+//    static var previews: some View {
+//        LoggerStoreSizeChart(info: try! LoggerStore.mock.info(), sizeLimit: 512 * 1024)
+//            .padding()
+//            .previewLayout(.sizeThatFits)
+//    }
+//}
 #endif

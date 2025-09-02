@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 #if os(tvOS)
 
@@ -19,7 +19,7 @@ public struct ConsoleView: View {
     }
 
     public var body: some View {
-        GeometryReader { proxy in
+        GeometryReader { _ in
             HStack {
                 List {
                     ConsoleListContentView()
@@ -37,6 +37,7 @@ public struct ConsoleView: View {
             .onAppear { listViewModel.isViewVisible = true }
             .onDisappear { listViewModel.isViewVisible = false }
         }
+        .disableScrollClip()
         .injecting(environment)
         .environmentObject(listViewModel)
     }
@@ -61,8 +62,12 @@ private struct ConsoleMenuView: View {
         } header: { Text("Quick Filters") }
         if !(store.options.contains(.readonly)) {
             Section {
-                NavigationLink(destination: destinationStoreDetails) {
-                    Label("Store Info", systemImage: "info.circle")
+                if #available(iOS 16, tvOS 16, *) {
+                    NavigationLink {
+                        StoreDetailsView(source: .store(store)).padding()
+                    } label: {
+                        Label("Store Info", systemImage: "info.circle")
+                    }
                 }
                 Button(role: .destructive, action: {
                     environment.index.clear()
@@ -83,12 +88,19 @@ private struct ConsoleMenuView: View {
         SettingsView(store: store).padding()
     }
 
-    private var destinationStoreDetails: some View {
-        StoreDetailsView(source: .store(store)).padding()
-    }
-
     private var destinationFilters: some View {
         ConsoleFiltersView().padding()
+    }
+}
+
+extension View {
+    @available(tvOS, obsoleted: 17.0, renamed: "scrollClipDisabled")
+    @ViewBuilder func disableScrollClip() -> some View {
+        if #available(tvOS 17.0, *) {
+            scrollClipDisabled()
+        } else {
+            self
+        }
     }
 }
 

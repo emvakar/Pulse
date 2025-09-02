@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import Foundation
 import Pulse
@@ -9,7 +9,7 @@ import Pulse
 import AppKit
 #endif
 
-final class TextRendererJSON {
+package final class TextRendererJSON {
     // Input
     private let json: Any
     private var error: NetworkLogger.DecodingError?
@@ -27,21 +27,21 @@ final class TextRendererJSON {
     private var errorRange: NSRange?
     private var string = ""
 
-    init(json: Any, error: NetworkLogger.DecodingError? = nil, options: TextRenderer.Options = .init()) {
+    package init(json: Any, error: NetworkLogger.DecodingError? = nil, options: TextRenderer.Options = .init()) {
         self.options = options
         self.helper = TextHelper()
         self.json = json
         self.error = error
     }
 
-    func render() -> NSAttributedString {
+    package func render() -> NSAttributedString {
         render(json: json, isFree: true)
 
         let output = NSMutableAttributedString(string: string, attributes: helper.attributes(role: .body2, style: .monospaced, color: color(for: .key)))
         for (range, element, node) in elements {
             output.addAttribute(.foregroundColor, value: color(for: element), range: range)
 #if os(macOS)
-            if let node = node {
+            if let node = node, TextRendererJSON.makeErrorAttributes != nil {
                 output.addAttribute(.node, value: node, range: range)
                 output.addAttribute(.cursor, value: NSCursor.pointingHand, range: range)
             }
@@ -60,6 +60,7 @@ final class TextRendererJSON {
             case .key: return UXColor.label
             case .valueString: return UXColor.label
             case .valueOther: return UXColor.label
+            case .boolean: return UXColor.label
             case .null: return UXColor.label
             }
         } else {
@@ -68,6 +69,7 @@ final class TextRendererJSON {
             case .key: return JSONColors.key
             case .valueString: return JSONColors.valueString
             case .valueOther: return JSONColors.valueOther
+            case .boolean: return JSONColors.null
             case .null: return JSONColors.null
             }
         }
@@ -160,9 +162,9 @@ final class TextRendererJSON {
 
     private func renderNumber(_ number: NSNumber) {
         if number === kCFBooleanTrue {
-            append("true", .valueOther)
+            append("true", .boolean)
         } else if number === kCFBooleanFalse {
-            append("false", .valueOther)
+            append("false", .boolean)
         } else {
             append("\(number)", .valueOther)
         }
@@ -210,18 +212,15 @@ final class TextRendererJSON {
 
     // MARK: Error
 
+    package static var makeErrorAttributes: ((Error) -> [NSAttributedString.Key: Any])?
+
     func makeErrorAttributes() -> [NSAttributedString.Key: Any] {
         guard let error = error else {
             return [:]
         }
-#if PULSE_STANDALONE_APP
-        return [
-            .decodingError: error,
-            .underlineColor: UXColor.red,
-            .underlineStyle: RichTextViewUnderlyingStyle.error.rawValue,
-            .cursor: NSCursor.pointingHand
-        ]
-#else
+        if let closure = TextRendererJSON.makeErrorAttributes {
+            return closure(error)
+        }
         return [
             .backgroundColor: options.color == .monochrome ? UXColor.label : UXColor.red,
             .foregroundColor: UXColor.white,
@@ -238,64 +237,50 @@ final class TextRendererJSON {
             }(),
             .underlineColor: UXColor.clear
         ]
-#endif
     }
 }
 
-struct JSONColors {
-    static let punctuation = UXColor.dynamic(
+package struct JSONColors {
+    package static let punctuation = UXColor.dynamic(
         light: .init(red: 113.0/255.0, green: 128.0/255.0, blue: 141.0/255.0, alpha: 1.0),
         dark: .init(red: 113.0/255.0, green: 128.0/255.0, blue: 141.0/255.0, alpha: 1.0)
     )
-    static let key = UXColor.label
-    static let valueString = Palette.red
-    static let valueOther = UXColor.dynamic(
+    package static let key = UXColor.label
+    package static let valueString = Palette.red
+    package static let valueOther = UXColor.dynamic(
         light: .init(red: 28.0/255.0, green: 0.0/255.0, blue: 207.0/255.0, alpha: 1.0),
         dark: .init(red: 208.0/255.0, green: 191.0/255.0, blue: 105.0/255.0, alpha: 1.0)
     )
-    static let null = Palette.pink
+    package static let null = Palette.pink
 }
 
 extension NSAttributedString.Key {
-    static let decodingError = NSAttributedString.Key(rawValue: "com.github.kean.pulse.decoding-error-key")
-    static let node = NSAttributedString.Key(rawValue: "com.github.kean.pulse.json-container-node")
+    package static let decodingError = NSAttributedString.Key(rawValue: "com.github.kean.pulse.decoding-error-key")
+    package static let node = NSAttributedString.Key(rawValue: "com.github.kean.pulse.json-container-node")
 }
 
-enum JSONElement {
+package enum JSONElement {
     case punctuation
     case key
     case valueString
     case valueOther
+    case boolean
     case null
 }
 
-final class JSONContainerNode {
-    enum Kind {
+package final class JSONContainerNode {
+    package enum Kind {
         case object
         case array
     }
 
-    let kind: Kind
-    let json: Any
-    var isExpanded = true
-    var expanded: NSAttributedString?
+    package let kind: Kind
+    package let json: Any
+    package var isExpanded = true
+    package var expanded: NSAttributedString?
 
-    init(kind: Kind, json: Any) {
+    package init(kind: Kind, json: Any) {
         self.kind = kind
         self.json = json
-    }
-
-    var openingCharacter: String {
-        switch kind {
-        case .object: return "{"
-        case .array: return "["
-        }
-    }
-
-    var closingCharacter: String {
-        switch kind {
-        case .object: return "}"
-        case .array: return "]"
-        }
     }
 }

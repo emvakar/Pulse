@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import Foundation
 
@@ -68,18 +68,6 @@ extension LoggerStore {
             public let systemName: String
             public let systemVersion: String
         }
-
-        /// Reads info from the given archive.
-        ///
-        /// - important: This API is designed to be used only with Pulse documents
-        /// exported from the app without unarchiving the document. If you need
-        /// to get info about the current store, use ``LoggerStore/Info``.
-        public static func make(storeURL: URL) throws -> Info {
-            let document = try PulseDocument(documentURL: storeURL)
-            defer { try? document.close() }
-            let info = try document.open()
-            return info
-        }
     }
 }
 
@@ -91,37 +79,36 @@ enum AppInfo {
 }
 
 extension LoggerStore.Info.AppInfo {
-    static func make() -> LoggerStore.Info.AppInfo {
-        LoggerStore.Info.AppInfo(
-            bundleIdentifier: AppInfo.bundleIdentifier,
-            name: AppInfo.appName,
-            version: AppInfo.appVersion,
-            build: AppInfo.appBuild,
-            icon: getAppIcon()?.base64EncodedString()
-        )
-    }
+    static let current = LoggerStore.Info.AppInfo(
+        bundleIdentifier: AppInfo.bundleIdentifier,
+        name: AppInfo.appName,
+        version: AppInfo.appVersion,
+        build: AppInfo.appBuild,
+        icon: getAppIcon()?.base64EncodedString()
+    )
 }
 
 private func getAppIcon() -> Data? {
-    guard let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String:Any],
-          let primaryIcons = icons["CFBundlePrimaryIcon"] as? [String:Any],
+    guard let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
+          let primaryIcons = icons["CFBundlePrimaryIcon"] as? [String: Any],
           let files = primaryIcons["CFBundleIconFiles"] as? [String],
           let lastIcon = files.last,
           let image = PlatformImage(named: lastIcon),
-          let data = Graphics.encode(image),
-          let thumbnail = Graphics.makeThumbnail(from: data, targetSize: 32) else { return nil }
-    return Graphics.encode(thumbnail)
+          let thumbnail = Graphics.resize(image, to: CGSize(width: 44, height: 44)) else { return nil }
+    return Graphics.encode(thumbnail, compressionQuality: 0.9)
 }
 
-#if os(iOS) || os(tvOS)
+#if os(iOS) || os(tvOS) || os(visionOS)
 import UIKit
 
+@MainActor
 func getDeviceId() -> UUID? {
     UIDevice.current.identifierForVendor
 }
 
 extension LoggerStore.Info.DeviceInfo {
-    static func make() -> LoggerStore.Info.DeviceInfo {
+    @MainActor
+    static let current: LoggerStore.Info.DeviceInfo = {
         let device = UIDevice.current
         return LoggerStore.Info.DeviceInfo(
             name: device.name,
@@ -130,17 +117,19 @@ extension LoggerStore.Info.DeviceInfo {
             systemName: device.systemName,
             systemVersion: device.systemVersion
         )
-    }
+    }()
 }
 #elseif os(watchOS)
 import WatchKit
 
+@MainActor
 func getDeviceId() -> UUID? {
     WKInterfaceDevice.current().identifierForVendor
 }
 
 extension LoggerStore.Info.DeviceInfo {
-    static func make() -> LoggerStore.Info.DeviceInfo {
+    @MainActor
+    static let current: LoggerStore.Info.DeviceInfo = {
         let device = WKInterfaceDevice.current()
         return LoggerStore.Info.DeviceInfo(
             name: device.name,
@@ -149,13 +138,14 @@ extension LoggerStore.Info.DeviceInfo {
             systemName: device.systemName,
             systemVersion: device.systemVersion
         )
-    }
+    }()
 }
 #else
 import AppKit
 
 extension LoggerStore.Info.DeviceInfo {
-    static func make() -> LoggerStore.Info.DeviceInfo {
+    @MainActor
+    static let current: LoggerStore.Info.DeviceInfo = {
         return LoggerStore.Info.DeviceInfo(
             name: Host.current().name ?? "unknown",
             model: "unknown",
@@ -163,9 +153,10 @@ extension LoggerStore.Info.DeviceInfo {
             systemName: "macOS",
             systemVersion: ProcessInfo().operatingSystemVersionString
         )
-    }
+    }()
 }
 
+@MainActor
 func getDeviceId() -> UUID? {
     return nil
 }

@@ -1,16 +1,20 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 
-@available(iOS 15, *)
-struct NetworkRequestStatusCell: View {
-    let viewModel: NetworkRequestStatusCellModel
+@available(iOS 16, visionOS 1, *)
+package struct NetworkRequestStatusCell: View {
+    package let viewModel: NetworkRequestStatusCellModel
+
+    package init(viewModel: NetworkRequestStatusCellModel) {
+        self.viewModel = viewModel
+    }
 
 #if os(watchOS)
-    var body: some View {
+    package var body: some View {
         HStack(spacing: spacing) {
             Text(viewModel.status.title)
                 .lineLimit(3)
@@ -23,7 +27,7 @@ struct NetworkRequestStatusCell: View {
     }
 
 #else
-    var body: some View {
+    package var body: some View {
         HStack(spacing: spacing) {
             viewModel.status.text
                 .lineLimit(1)
@@ -36,6 +40,8 @@ struct NetworkRequestStatusCell: View {
         .padding(.bottom, 16)
         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
         .listRowBackground(Color.clear)
+#elseif os(macOS)
+        .font(.title3.weight(.medium))
 #else
         .font(.headline)
 #endif
@@ -48,23 +54,25 @@ struct NetworkRequestStatusCell: View {
         if viewModel.isMock {
             MockBadgeView()
         } else {
+#if !os(macOS)
             viewModel.duration.map(DurationLabel.init)
+#endif
         }
     }
 }
 
-struct NetworkRequestStatusCellModel {
-    let status: StatusLabelViewModel
-    let isMock: Bool
+package struct NetworkRequestStatusCellModel {
+    package let status: StatusLabelViewModel
+    package let isMock: Bool
     fileprivate let duration: DurationViewModel?
 
-    init(task: NetworkTaskEntity, store: LoggerStore) {
+    package init(task: NetworkTaskEntity, store: LoggerStore?) {
         self.status = StatusLabelViewModel(task: task, store: store)
         self.duration = DurationViewModel(task: task)
         self.isMock = task.isMocked
     }
 
-    init(transaction: NetworkTransactionMetricsEntity) {
+    package init(transaction: NetworkTransactionMetricsEntity) {
         status = StatusLabelViewModel(transaction: transaction)
         duration = DurationViewModel(transaction: transaction)
         isMock = false
@@ -129,13 +137,13 @@ private let spacing: CGFloat? = nil
 #endif
 
 #if DEBUG
-@available(iOS 15, *)
+@available(iOS 16, visionOS 1, *)
 struct NetworkRequestStatusCell_Previews: PreviewProvider {
     static var previews: some View {
         NavigationView {
             List {
                 ForEach(MockTask.allEntities, id: \.objectID) { task in
-                    NetworkRequestStatusCell(viewModel: .init(task: task, store: .mock))
+                    NetworkRequestStatusCell(viewModel: .init(task: task, store: LoggerStore.mock))
                 }
             }
 #if os(macOS)

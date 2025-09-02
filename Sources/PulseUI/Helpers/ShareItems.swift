@@ -1,41 +1,50 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import Foundation
 import Pulse
 import CoreData
 
-public enum ShareStoreOutput: String, RawRepresentable {
-    case store, package, text, html, har
+public enum ShareStoreOutput: String, RawRepresentable, Codable, CaseIterable {
+    case store, text, html, har
 
     public var fileExtension: String {
         switch self {
-        case .store, .package: return "pulse"
+        case .store: return "pulse"
         case .text: return "txt"
         case .html: return "html"
         case .har: return "har"
         }
     }
+
+    var interfaceTitle: String {
+        switch self {
+        case .store: "Pulse"
+        case .text: "Plain Text"
+        case .html: "HTML"
+        case .har: "HAR"
+        }
+    }
 }
 
-public struct ShareItems: Identifiable {
-    public let id = UUID()
-    public let items: [Any]
-    public let size: Int64?
-    public let cleanup: () -> Void
+package struct ShareItems: Identifiable {
+    package let id = UUID()
+    package let items: [Any]
+    package let size: Int64?
+    package let cleanup: () -> Void
 
-    public init(_ items: [Any], size: Int64? = nil, cleanup: @escaping () -> Void = { }) {
+    package init(_ items: [Any], size: Int64? = nil, cleanup: @escaping () -> Void = { }) {
         self.items = items
         self.size = size
         self.cleanup = cleanup
     }
 }
 
-public enum ShareService {
+package enum ShareService {
     private static var task: ShareStoreTask?
 
-    public static func share(_ entities: [NSManagedObject], store: LoggerStore, as output: ShareOutput) async throws -> ShareItems {
+    package static func share(_ entities: [NSManagedObject], store: LoggerStore, as output: ShareOutput) async throws -> ShareItems {
         try await withUnsafeThrowingContinuation { continuation in
             ShareStoreTask(entities: entities, store: store, output: output) {
                 if let value = $0 {
@@ -47,17 +56,17 @@ public enum ShareService {
         }
     }
 
-    static func share(_ message: LoggerMessageEntity, as output: ShareOutput) -> ShareItems {
+    package static func share(_ message: LoggerMessageEntity, as output: ShareOutput) -> ShareItems {
         let string = TextRenderer(options: .sharing).make { $0.render(message) }
         return share(string, as: output)
     }
 
-    static func share(_ task: NetworkTaskEntity, as output: ShareOutput, store: LoggerStore) -> ShareItems {
+    package static func share(_ task: NetworkTaskEntity, as output: ShareOutput, store: LoggerStore) -> ShareItems {
         let string = TextRenderer(options: .sharing).make { $0.render(task, content: .sharing, store: store) }
         return share(string, as: output)
     }
 
-    static func share(_ string: NSAttributedString, as output: ShareOutput) -> ShareItems {
+    package static func share(_ string: NSAttributedString, as output: ShareOutput) -> ShareItems {
         let string = sanitized(string, as: output)
         switch output {
         case .plainText:
@@ -69,7 +78,7 @@ public enum ShareService {
             let fileURL = directory.write(data: html, extension: "html")
             return ShareItems([fileURL], size: Int64(html.count), cleanup: directory.remove)
         case .pdf:
-#if os(iOS)
+#if os(iOS) || os(visionOS)
             let pdf = (try? TextUtilities.pdf(from: string)) ?? Data()
             let directory = TemporaryDirectory()
             let fileURL = directory.write(data: pdf, extension: "pdf")
@@ -85,7 +94,7 @@ public enum ShareService {
         }
     }
 
-    static func sanitized(_ string: NSAttributedString, as shareOutput: ShareOutput) -> NSAttributedString {
+    package static func sanitized(_ string: NSAttributedString, as shareOutput: ShareOutput) -> NSAttributedString {
         var ranges: [NSRange] = []
         string.enumerateAttribute(.isTechnical, in: NSRange(location: 0, length: string.length)) { value, range, _ in
             if (value as? Bool) == true {

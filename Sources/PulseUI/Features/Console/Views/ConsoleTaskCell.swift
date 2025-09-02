@@ -1,222 +1,201 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 import Combine
 import CoreData
 
-@available(iOS 15, *)
-struct ConsoleTaskCell: View {
+package struct ConsoleTaskCell: View {
     @ObservedObject var task: NetworkTaskEntity
     var isDisclosureNeeded = false
 
+    @ScaledMetric(relativeTo: .body) private var fontMultiplier = 1.0
     @ObservedObject private var settings: UserSettings = .shared
     @Environment(\.store) private var store: LoggerStore
 
-    var body: some View {
-#if os(macOS)
-        let spacing: CGFloat = 3
-#else
-        let spacing: CGFloat = 6
-#endif
-
-        let contents = VStack(alignment: .leading, spacing: spacing) {
-            title.dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-            message
-#if !os(macOS)
-            details
-#endif
-#if os(iOS)
-            requestHeaders
-#endif
-        }
-#if !PULSE_STANDALONE_APP
-            .animation(.default, value: task.state)
-#endif
-#if os(macOS)
-        contents.padding(.vertical, 5)
-#else
-        if #unavailable(iOS 16) {
-            contents.padding(.vertical, 4)
-        } else {
-            contents
-        }
-#endif
+    package enum EditableArea {
+        case header, content, footer
     }
 
-    private var title: some View {
-        HStack(spacing: titleSpacing) {
+    package var highlightedArea: EditableArea?
+
+    package init(task: NetworkTaskEntity, isDisclosureNeeded: Bool = false, highlightedArea: EditableArea? = nil) {
+        self.task = task
+        self.isDisclosureNeeded = isDisclosureNeeded
+        self.highlightedArea = highlightedArea
+    }
+
+    package var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            header
+            makeContent(settings: settings.listDisplayOptions.content)
+                .highlighted(highlightedArea == .content)
+#if os(iOS) || os(watchOS)
+            makeFooter(settings: settings.listDisplayOptions.footer)
+                .highlighted(highlightedArea == .footer)
+#endif
+        }
+    }
+
+    // MARK: – Header
+
+#if os(watchOS)
+    private var header: some View {
+        HStack {
+            StatusIndicatorView(state: task.state(in: store))
+            info
+        }
+    }
+#else
+    private var header: some View {
+        HStack(spacing: 6) {
             if task.isMocked {
                 MockBadgeView()
-                    .padding(.trailing, 2)
             }
-            StatusLabelViewModel(task: task, store: store).text
-                .font(ConsoleConstants.fontTitle)
-                .fontWeight(.medium)
-                .foregroundColor(task.state.tintColor)
-                .lineLimit(1)
-#if os(macOS)
-            details
-#endif
+            info.highlighted(highlightedArea == .header)
+
             Spacer()
-#if os(iOS) || os(macOS)
-            PinView(task: task)
-#endif
-#if !os(watchOS)
-            HStack(spacing: 3) {
-                time
-                if isDisclosureNeeded {
-                    ListDisclosureIndicator()
-                }
+            if task.isPinned {
+                BookmarkIconView()
             }
-#endif
+            ConsoleTimestampView(date: task.createdAt)
+                .padding(.trailing, 3)
         }
-    }
-
-    private var time: some View {
-        Text(ConsoleMessageCell.timeFormatter.string(from: task.createdAt))
-            .lineLimit(1)
-            .font(ConsoleConstants.fontInfo)
-            .foregroundColor(.secondary)
-            .monospacedDigit()
-    }
-
-    private var message: some View {
-        VStack(spacing: 3) {
-            HStack {
-                Text(task.url ?? "–")
-                    .font(ConsoleConstants.fontBody)
-                    .foregroundColor(.primary)
-                    .lineLimit(settings.lineLimit)
-
-                Spacer()
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var details: some View {
-#if os(watchOS)
-        HStack {
-            Text(task.httpMethod ?? "GET")
-                .font(ConsoleConstants.fontBody)
-                .foregroundColor(.secondary)
-            Spacer()
-            time
-        }
-#elseif os(iOS)
-        infoText
-            .lineLimit(1)
-            .font(ConsoleConstants.fontInfo)
-            .foregroundColor(.secondary)
-            .padding(.top, 2)
+        .overlay(alignment: .leading) {
+            StatusIndicatorView(state: task.state(in: store))
+#if os(tvOS)
+                .offset(x: -20)
 #else
-        infoText
-            .lineLimit(1)
-            .font(ConsoleConstants.fontTitle)
-            .foregroundColor(.secondary)
+                .offset(x: -14)
 #endif
+        }
+        .overlay(alignment: .trailing) {
+            if isDisclosureNeeded {
+                ListDisclosureIndicator()
+                    .offset(x: 8)
+            }
+        }
     }
 
-    private var infoText: Text {
-        var text = Text(task.httpMethod ?? "GET")
-        if task.state != .pending {
-            text = text + Text("    ") +
-            makeInfoText("arrow.up", byteCount(for: task.requestBodySize)) + Text("    ") +
-            makeInfoText("arrow.down", byteCount(for: task.responseBodySize)) + Text("     ") +
-            makeInfoText("clock", ConsoleFormatter.duration(for: task) ?? "–")
+#endif
+    private var info: some View {
+        let status: Text = Text(ConsoleFormatter.status(for: task, store: store))
+            .font(makeFont(size: settings.listDisplayOptions.header.fontSize).weight(.medium))
+            .foregroundColor(task.state == .failure ? .red : .primary)
+
+#if os(watchOS)
+        return status // Not enough space for anything else
+#else
+
+        var text: Text {
+            let details = settings.listDisplayOptions.header.fields
+                .compactMap(task.makeInfoText)
+                .joined(separator: " · ")
+            guard !details.isEmpty else {
+                return status
+            }
+            return status + Text(" · \(details)")
+                .font(makeFont(size: settings.listDisplayOptions.header.fontSize))
         }
         return text
+            .tracking(-0.1)
+            .lineLimit(settings.listDisplayOptions.header.lineLimit)
+            .foregroundStyle(.secondary)
+#endif
     }
 
-    private func makeInfoText(_ image: String, _ text: String) -> Text {
-        Text(Image(systemName: image)).fontWeight(.light) + Text(" " + text)
+    // MARK: – Content
+
+    private func makeContent(settings: ConsoleListDisplaySettings.ContentSettings) -> some View {
+        let design: Font.Design? = settings.isMonospaced ? .monospaced : nil
+        var method: Text? {
+            guard settings.showMethod, let method = task.httpMethod else {
+                return nil
+            }
+            return Text(method.appending(" "))
+                .font(makeFont(size: settings.fontSize, design: design).weight(.medium).smallCaps())
+                .tracking(-0.2)
+        }
+
+        var main: Text {
+            Text(task.getFormattedContent(settings: settings) ?? "–")
+                .font(makeFont(size: settings.fontSize, design: design))
+        }
+
+        var text: Text {
+            if let method {
+                method + main
+            } else {
+                main
+            }
+        }
+
+        return text
+            .lineLimit(settings.lineLimit)
     }
 
-    private func byteCount(for size: Int64) -> String {
-        guard size > 0 else { return "0 KB" }
-        return ByteCountFormatter.string(fromByteCount: size)
-    }
+    // MARK: – Footer
 
     @ViewBuilder
-    private var requestHeaders: some View {
-        let headerValueMap = settings.displayHeaders.reduce(into: [String: String]()) { partialResult, header in
-            partialResult[header] = task.originalRequest?.headers[header]
+    private func makeFooter(settings: ConsoleListDisplaySettings.FooterSettings) -> some View {
+        let design: Font.Design? = settings.isMonospaced ? .monospaced : nil
+        let fields = settings.fields.compactMap(task.makeInfoText)
+        if !fields.isEmpty {
+            Text(fields.joined(separator: " · "))
+                .lineLimit(settings.lineLimit)
+                .font(makeFont(size: settings.fontSize, design: design))
+                .foregroundStyle(.secondary)
         }
-        ForEach(headerValueMap.keys.sorted(), id: \.self) { key in
-            HStack {
-                (Text(key + ": ")
-                    .foregroundColor(.secondary) +
-                 Text(headerValueMap[key] ?? "-"))
-                .font(.footnote)
-                .allowsTightening(true)
-                .lineLimit(3)
-
-                Spacer()
+        let additional = settings.additionalFields.compactMap(task.makeInfoItem)
+        if !additional.isEmpty {
+            Divider().opacity(0.5).padding(.vertical, 2)
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(additional) { field in
+                    (Text(field.title + ": ").fontWeight(.medium) + Text(field.value))
+                        .lineLimit(settings.lineLimit)
+                        .font(makeFont(size: settings.fontSize, design: design))
+                        .foregroundStyle(.secondary)
+                }
             }
-            .padding(.top, 6)
-            .padding(.trailing, -7)
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func makeFont(size: Int, weight: Font.Weight? = nil, design: Font.Design? = nil) -> Font {
+        if #available(iOS 16, tvOS 16, *) {
+            return Font.system(size: CGFloat(design == .monospaced ? size - 1 : size) * fontMultiplier, weight: weight, design: design)
+        } else {
+            return Font.system(size: CGFloat(design == .monospaced ? size - 1 : size) * fontMultiplier)
         }
     }
 }
 
-#if os(macOS)
-private let infoSpacing: CGFloat = 8
-#else
-private let infoSpacing: CGFloat = 14
-#endif
+#if canImport(RiftSupport)
+import RiftSupport
 
-#if os(tvOS)
-private let titleSpacing: CGFloat = 20
-#else
-private let titleSpacing: CGFloat? = nil
-#endif
-
-@available(iOS 15, *)
-struct MockBadgeView: View {
-    var body: some View {
-        Text("MOCK")
-#if os(watchOS)
-            .font(.footnote)
-#elseif os(tvOS)
-            .font(.caption2)
-#else
-            .font(ConsoleConstants.fontInfo)
-            .fontWeight(.medium)
-#endif
-            .foregroundStyle(Color.white)
-            .background(background)
-    }
-
-    private var background: some View {
-        Capsule()
-            .foregroundStyle(Color.indigo)
-            .padding(-2)
-            .padding(.horizontal, -3)
-#if os(tvOS)
-            .padding(-2)
-#endif
+private extension View {
+    @ViewBuilder
+    func highlighted(_ isHighlighted: Bool) -> some View {
+        if isHighlighted {
+            self.highlighted()
+        } else {
+            self
+        }
     }
 }
-
-private struct ConsoleProgressText: View {
-    let title: String
-    @ObservedObject var viewModel: ProgressViewModel
-
-    var body: some View {
-        (Text(title) +
-         Text("   ") +
-         Text(viewModel.details ?? ""))
-            .font(ConsoleConstants.fontBody.smallCaps())
-            .lineLimit(1)
-            .foregroundColor(.secondary)
+#else
+private extension View {
+    func highlighted(_ isHighlighted: Bool) -> some View {
+        self
     }
 }
+#endif
 
 #if DEBUG
-@available(iOS 15, *)
+@available(iOS 16, visionOS 1, *)
 struct ConsoleTaskCell_Previews: PreviewProvider {
     static var previews: some View {
         ConsoleTaskCell(task: LoggerStore.preview.entity(for: .login))

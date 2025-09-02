@@ -1,12 +1,12 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 
 import Foundation
 
-enum ConsoleSearchScope: Equatable, Hashable, Codable, CaseIterable {
+package enum ConsoleSearchScope: Equatable, Hashable, Codable, CaseIterable {
     // MARK: Logs
     case message
     case metadata
@@ -19,7 +19,7 @@ enum ConsoleSearchScope: Equatable, Hashable, Codable, CaseIterable {
     case responseHeaders
     case responseBody
 
-    var isDisplayedInResults: Bool {
+    package var isDisplayedInResults: Bool {
         switch self {
         case .message, .url:
             return false
@@ -28,12 +28,12 @@ enum ConsoleSearchScope: Equatable, Hashable, Codable, CaseIterable {
         }
     }
 
-    static let messageScopes: [ConsoleSearchScope] = [
+    package static let messageScopes: [ConsoleSearchScope] = [
         .message,
         .metadata
     ]
 
-    static let networkScopes: [ConsoleSearchScope] = [
+    package static let networkScopes: [ConsoleSearchScope] = [
         .url,
         .originalRequestHeaders,
         .currentRequestHeaders,
@@ -42,7 +42,7 @@ enum ConsoleSearchScope: Equatable, Hashable, Codable, CaseIterable {
         .responseBody
     ]
 
-    var title: String {
+    package var title: String {
         switch self {
         case .url: return "URL"
         case .originalRequestHeaders: return "Original Request Headers"

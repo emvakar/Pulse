@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 #if os(watchOS)
 
@@ -50,7 +50,7 @@ private struct ConsoleToolbarView: View {
     var body: some View {
         HStack {
             if environment.initialMode == .all {
-                Button(action: { environment.bindingForNetworkMode.wrappedValue.toggle() } ) {
+                Button(action: { environment.bindingForNetworkMode.wrappedValue.toggle() }) {
                     Image(systemName: "arrow.down.circle")
                 }
                 .background(environment.bindingForNetworkMode.wrappedValue ? Rectangle().foregroundColor(.blue).cornerRadius(8) : nil)
@@ -65,11 +65,11 @@ private struct ConsoleToolbarView: View {
             }
             .background(viewModel.isDefaultFilters(for: environment.mode) ? nil : Rectangle().foregroundColor(.blue).cornerRadius(8))
         }
-            .font(.title3)
-            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-            .listRowBackground(Color.clear)
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.roundedRectangle(radius: 8))
+        .font(.title3)
+        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+        .listRowBackground(Color.clear)
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.roundedRectangle(radius: 8))
     }
 }
 

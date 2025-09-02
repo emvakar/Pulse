@@ -1,26 +1,36 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 import CoreData
 
-@available(iOS 15, macOS 13, *)
-struct ConsoleSessionsPickerView: View {
+@available(iOS 16, macOS 13, visionOS 1, *)
+package struct ConsoleSessionsPickerView: View {
     @Binding var selection: Set<UUID>
     @State private var isShowingPicker = false
 
     @Environment(\.store) private var store: LoggerStore
+
+#if os(iOS) || os(visionOS) || os(macOS)
+    package static var makeSessionPicker: (_ selection: Binding<Set<UUID>>) -> AnyView = {
+#if os(macOS)
+        AnyView(EmptyView()) // Has to be injected
+#else
+        AnyView(SessionPickerView(selection: $0))
+#endif
+    }
+#endif
 
 #if os(watchOS) || os(tvOS)
     @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \LoggerSessionEntity.createdAt, ascending: false)])
     private var sessions: FetchedResults<LoggerSessionEntity>
 #endif
 
-    var body: some View {
-#if os(iOS)
-        NavigationLink(destination: SessionPickerView(selection: $selection)) {
+    package var body: some View {
+#if os(iOS) || os(visionOS)
+        NavigationLink(destination: ConsoleSessionsPickerView.makeSessionPicker($selection)) {
             InfoRow(title: "Sessions", details: selectedSessionTitle)
         }
 #elseif os(macOS)
@@ -32,7 +42,7 @@ struct ConsoleSessionsPickerView: View {
             Button("Select...") { isShowingPicker = true }
         }
         .popover(isPresented: $isShowingPicker, arrowEdge: .trailing) {
-            SessionPickerView(selection: $selection)
+            ConsoleSessionsPickerView.makeSessionPicker($selection)
                 .frame(width: 260, height: 370)
 
         }

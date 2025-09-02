@@ -1,37 +1,25 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 import CoreData
 import Combine
 
-protocol ConsoleEntitiesSource {
+package protocol ConsoleEntitiesSource {
     var events: PassthroughSubject<ConsoleUpdateEvent, Never> { get }
     var entities: [NSManagedObject] { get }
 }
 
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 
 final class ConsoleSearchBarViewModel: ObservableObject {
     @Published var text: String = ""
-    @Published var tokens: [ConsoleSearchToken] = []
 }
 
-@available(iOS 15, *)
+@available(iOS 16, visionOS 1, *)
 final class ConsoleSearchViewModel: ObservableObject, ConsoleSearchOperationDelegate {
-    var isSearchActive: Bool = false {
-        didSet {
-            guard oldValue != isSearchActive else { return }
-            if !isSearchActive {
-                searchService.clearCache()
-                operation?.cancel()
-                operation = nil
-            }
-        }
-    }
-
     @Published var options: StringSearchOptions = .default
     @Published var scopes: Set<ConsoleSearchScope> = []
 
@@ -50,17 +38,17 @@ final class ConsoleSearchViewModel: ObservableObject, ConsoleSearchOperationDele
         if parameters.isEmpty {
             return "Search"
         } else {
-            return "\(results.count) results"
+            return "\(results.count)\(hasMore ? "+" : "") results"
         }
     }
 
     var parameters: ConsoleSearchParameters {
-        var tokens = searchBar.tokens
+        var term: ConsoleSearchTerm?
         let searchTerm = searchBar.text.trimmingCharacters(in: .whitespaces)
         if !searchTerm.isEmpty {
-            tokens.append(.term(.init(text: searchTerm, options: options)))
+            term = ConsoleSearchTerm(text: searchTerm, options: options)
         }
-        return ConsoleSearchParameters(tokens: tokens, scopes: scopes)
+        return ConsoleSearchParameters(term: term, scopes: scopes)
     }
 
     var allScopes: [ConsoleSearchScope] {
@@ -73,8 +61,7 @@ final class ConsoleSearchViewModel: ObservableObject, ConsoleSearchOperationDele
     private var operation: ConsoleSearchOperation?
     private var refreshResultsOperation: ConsoleSearchOperation?
 
-    private var recents: ConsoleSearchRecentSearchesStore { suggestionsService.recents }
-    private var suggestionsService: ConsoleNetworkSearchSuggestionsService!
+    private let recents: ConsoleSearchRecentSearchesStore
     @Published private(set) var suggestionsViewModel: ConsoleSearchSuggestionsViewModel!
 
     private let source: ConsoleEntitiesSource
@@ -83,7 +70,6 @@ final class ConsoleSearchViewModel: ObservableObject, ConsoleSearchOperationDele
     private let environment: ConsoleEnvironment
     private let store: LoggerStore
     private let index: LoggerStoreIndex
-    private let queue = DispatchQueue(label: "com.github.pulse.console-search-view")
     private var cancellables: [AnyCancellable] = []
     private let context: NSManagedObjectContext
 
@@ -91,32 +77,23 @@ final class ConsoleSearchViewModel: ObservableObject, ConsoleSearchOperationDele
         self.environment = environment
         self.store = environment.store
         self.index = environment.index
+        self.recents = ConsoleSearchRecentSearchesStore(mode: environment.mode)
         self.source = source
         self.searchBar = searchBar
 
         self.context = store.newBackgroundContext()
-
-#if os(iOS)
-        searchBar.$text.sink {
-            if $0.last == "\t" {
-                DispatchQueue.main.async {
-                    self.autocompleteCurrentFilter()
-                }
-            }
-        }.store(in: &cancellables)
-#endif
+        self.scopes = Set(allScopes)
 
         let text = searchBar.$text
             .map { $0.trimmingCharacters(in: .whitespaces ) }
             .removeDuplicates()
 
-        let didChangeSearchCriteria = Publishers.CombineLatest4(
+        let didChangeSearchCriteria = Publishers.CombineLatest3(
             text.removeDuplicates(),
-            searchBar.$tokens.removeDuplicates(),
             $options.removeDuplicates(),
             $scopes
         )
-            .map { _, _, _, _ in }
+            .map { _, _, _ in }
             .dropFirst()
             .receive(on: DispatchQueue.main)
 
@@ -140,8 +117,7 @@ final class ConsoleSearchViewModel: ObservableObject, ConsoleSearchOperationDele
     }
 
     private func configure(mode: ConsoleMode) {
-        self.suggestionsService = ConsoleNetworkSearchSuggestionsService(mode: mode)
-        self.suggestionsViewModel = suggestionsService.makeSuggestions(for: makeContextForSuggestions())
+        self.suggestionsViewModel = getRecentSearches()
         DispatchQueue.main.async {
             self.refreshNow()
         }
@@ -153,13 +129,6 @@ final class ConsoleSearchViewModel: ObservableObject, ConsoleSearchOperationDele
             refreshNow()
         case .update:
             checkForNewSearchMatches(for: source.entities)
-        }
-    }
-
-    private func autocompleteCurrentFilter() {
-        if let filter = suggestionsViewModel.filters.first,
-           case .autocomplete(let text) = filter.action {
-            searchBar.text = text
         }
     }
 
@@ -204,9 +173,6 @@ final class ConsoleSearchViewModel: ObservableObject, ConsoleSearchOperationDele
     }
 
     private func checkForNewSearchMatches(for entities: [NSManagedObject]) {
-        guard isSearchActive else {
-            return // Off-screen
-        }
         guard operation == nil && refreshResultsOperation == nil else {
             return // Let's wait until the next refresh
         }
@@ -253,7 +219,6 @@ final class ConsoleSearchViewModel: ObservableObject, ConsoleSearchOperationDele
 
     func searchOperationDidFinish(_ operation: ConsoleSearchOperation, hasMore: Bool) {
         if operation === self.operation {
-            self.operation = nil
             isSearching = false
             if dirtyDate != nil {
                 self.dirtyDate = nil
@@ -286,36 +251,17 @@ final class ConsoleSearchViewModel: ObservableObject, ConsoleSearchOperationDele
         updateSearchTokens()
     }
 
-    private func apply(_ token: ConsoleSearchToken) {
-        switch token {
-        case .filter(let filter):
-            searchBar.text = ""
-            searchBar.tokens.append(token)
-            recents.saveFilter(filter)
-        case .term(let term):
-            searchBar.text = term.text
-            options = term.options
-            recents.saveSearch(term)
-        }
+    private func apply(_ term: ConsoleSearchTerm) {
+        searchBar.text = term.text
+        options = term.options
+        recents.saveSearch(term)
     }
 
     func onSubmitSearch() {
-#if os(macOS)
-        if let suggestionID = UUID(uuidString: searchBar.text),
-           let suggestion = suggestionsViewModel.getSuggestion(withID: suggestionID) {
-            perform(suggestion)
-            return
-        }
-#endif
         let searchTerm = searchBar.text.trimmingCharacters(in: .whitespaces)
         if !searchTerm.isEmpty {
             recents.saveSearch(.init(text: searchTerm, options: options))
         }
-    }
-
-    func buttonShowMoreResultsTapped() {
-        isSearching = true
-        operation?.resume()
     }
 
     func buttonShowNewlyAddedSearchResultsTapped() {
@@ -327,28 +273,40 @@ final class ConsoleSearchViewModel: ObservableObject, ConsoleSearchOperationDele
         updateSearchTokens()
     }
 
+    func didScroll(to result: ConsoleSearchResultViewModel) {
+        guard results.count > 3 && results[results.endIndex - 2].entity.objectID == result.entity.objectID else {
+            return
+        }
+        guard !isSearching && hasMore else {
+            return
+        }
+        isSearching = true
+        operation?.resume() // Load more
+    }
+
     // MARK: Suggested Tokens
 
     private func updateSearchTokens() {
-        let context = makeContextForSuggestions()
-        queue.async {
-            let viewModel = self.suggestionsService.makeSuggestions(for: context)
-            DispatchQueue.main.async {
-                self.suggestionsViewModel = viewModel
-            }
+        let searchText = searchBar.text.trimmingCharacters(in: .whitespaces)
+        if searchText.isEmpty {
+            self.suggestionsViewModel = getRecentSearches()
+        } else {
+            self.suggestionsViewModel = ConsoleSearchSuggestionsViewModel(searches: [])
         }
     }
 
-    private func makeContextForSuggestions() -> ConsoleSearchSuggestionsContext {
-        ConsoleSearchSuggestionsContext(
-            searchText: searchBar.text.trimmingCharacters(in: .whitespaces),
-            index: index,
-            parameters: parameters
-        )
+    private func getRecentSearches() -> ConsoleSearchSuggestionsViewModel {
+        let recentSearches = recents.searches.prefix(3).map { term in
+            ConsoleSearchSuggestion(text: {
+                AttributedString("\(term.options.title) ") { $0.foregroundColor = .primary } +
+                AttributedString(term.text) { $0.foregroundColor = .accentColor }
+            }(), action: .apply(term))
+        }
+        return ConsoleSearchSuggestionsViewModel(searches: recentSearches)
     }
 }
 
-@available(iOS 15, *)
+@available(iOS 16, visionOS 1, *)
 struct ConsoleSearchResultViewModel: Identifiable {
     var id: ConsoleSearchResultKey { ConsoleSearchResultKey(id: entity.objectID) }
     let entity: NSManagedObject
@@ -360,22 +318,33 @@ struct ConsoleSearchResultKey: Hashable {
 }
 
 struct ConsoleSearchParameters: Equatable, Hashable {
-    var filters: [ConsoleSearchFilter] = []
     var scopes: [ConsoleSearchScope] = []
-    var terms: [ConsoleSearchTerm] = []
+    var term: ConsoleSearchTerm?
 
-    init(tokens: [ConsoleSearchToken], scopes: Set<ConsoleSearchScope>) {
-        for token in tokens {
-            switch token {
-            case .filter(let filter): self.filters.append(filter)
-            case .term(let string): self.terms.append(string)
-            }
-        }
+    init(term: ConsoleSearchTerm?, scopes: Set<ConsoleSearchScope>) {
+        self.term = term
         self.scopes = Array(scopes)
     }
 
     var isEmpty: Bool {
-        filters.isEmpty && terms.isEmpty
+        term == nil
+    }
+}
+
+@available(iOS 16, visionOS 1, *)
+struct ConsoleSearchSuggestionsViewModel {
+    let searches: [ConsoleSearchSuggestion]
+}
+
+@available(iOS 16, visionOS 1, *)
+struct ConsoleSearchSuggestion: Identifiable {
+    let id = UUID()
+    let text: AttributedString
+    var action: Action
+
+    enum Action {
+        case apply(ConsoleSearchTerm)
+        case autocomplete(String)
     }
 }
 

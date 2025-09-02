@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import CoreData
 import Pulse
@@ -102,7 +102,7 @@ final class ConsoleEnvironment: ObservableObject {
         store.removeAll()
         index.clear()
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
         runHapticFeedback(.success)
 #endif
     }
@@ -117,8 +117,8 @@ public enum ConsoleMode: String {
     /// Displays only network tasks.
     case network
 
-    var hasLogs: Bool { self == .all || self == .logs }
-    var hasNetwork: Bool { self == .all || self == .network }
+    package var hasLogs: Bool { self == .all || self == .logs }
+    package var hasNetwork: Bool { self == .all || self == .network }
 }
 
 // MARK: Environment
@@ -132,12 +132,12 @@ private struct ConsoleRouterKey: EnvironmentKey {
 }
 
 extension EnvironmentValues {
-    var store: LoggerStore {
+    package var store: LoggerStore {
         get { self[LoggerStoreKey.self] }
         set { self[LoggerStoreKey.self] = newValue }
     }
 
-    var router: ConsoleRouter {
+    package var router: ConsoleRouter {
         get { self[ConsoleRouterKey.self] }
         set { self[ConsoleRouterKey.self] = newValue }
     }

@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import CoreData
 
@@ -30,6 +30,7 @@ public final class LoggerMessageEntity: NSManagedObject {
 public final class NetworkTaskEntity: NSManagedObject {
     // Primary
     @NSManaged public var createdAt: Date
+    @NSManaged public var isPinned: Bool
     @NSManaged public var session: UUID
     @NSManaged public var taskId: UUID
 
@@ -94,6 +95,8 @@ public final class NetworkTaskEntity: NSManagedObject {
     @NSManaged public var requestBodySize: Int64
     /// The size of the response body.
     @NSManaged public var responseBodySize: Int64
+    /// The `taskDescription` value of `URLSessionTask`.
+    @NSManaged public var taskDescription: String?
     /// Associated (technical) message.
     @NSManaged public var message: LoggerMessageEntity?
 
@@ -279,9 +282,9 @@ public final class LoggerBlobHandleEntity: NSManagedObject {
     /// A decompressed blob size.
     @NSManaged public var decompressedSize: Int32
 
-    @NSManaged var isUncompressed: Bool
+    @NSManaged package var isUncompressed: Bool
 
-    @NSManaged var rawContentType: String?
+    @NSManaged package var rawContentType: String?
 
     /// A blob content type.
     public var contentType: NetworkLogger.ContentType? {
@@ -311,10 +314,10 @@ public final class LoggerBlobHandleEntity: NSManagedObject {
     /// that matches the name o the file in the `/blobs` directly in the store
     /// directory.
     public var data: Data? {
-        guard let store = managedObjectContext?.userInfo[WeakLoggerStore.loggerStoreKey] as? WeakLoggerStore else {
+        guard let store = managedObjectContext?.userInfo[LoggerBlogDataStore.loggerStoreKey] as? LoggerBlogDataStore else {
             return nil // Should never happen unless the object was created outside of the LoggerStore moc
         }
-        return store.store?.getDecompressedData(for: self)
+        return store.getDecompressedData(self)
     }
 
     /// Returns a closure to fetch the entity's data that can be executed
@@ -329,4 +332,12 @@ public final class LoggerBlobHandleEntity: NSManagedObject {
             store.getDecompressedData(for: inlineData, key: key, isCompressed: isCompressed)
         }
     }
+}
+
+extension LoggerMessageEntity: Identifiable {
+    public var id: NSManagedObjectID { objectID }
+}
+
+extension NetworkTaskEntity: Identifiable {
+    public var id: NSManagedObjectID { objectID }
 }

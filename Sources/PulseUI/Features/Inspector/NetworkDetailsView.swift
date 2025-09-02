@@ -1,16 +1,16 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 
-struct NetworkDetailsView: View {
+package struct NetworkDetailsView: View {
     private var title: String
     private let viewModel: NetworkDetailsViewModel?
     @State private var isShowingShareSheet = false
 
-    init(title: String, viewModel: @escaping () -> KeyValueSectionViewModel?) {
+    package init(title: String, viewModel: @escaping () -> KeyValueSectionViewModel?) {
         self.title = title
         self.viewModel = NetworkDetailsViewModel {
             viewModel().map { viewModel in
@@ -19,19 +19,21 @@ struct NetworkDetailsView: View {
         }
     }
 
-    init(title: String, text: @escaping () -> NSAttributedString?) {
+    package init(title: String, text: @escaping () -> NSAttributedString?) {
         self.title = title
         self.viewModel = NetworkDetailsViewModel(text)
     }
 
-    var body: some View {
+    package var body: some View {
         contents.inlineNavigationTitle(title)
     }
 
     @ViewBuilder
     private var contents: some View {
         if let viewModel = viewModel?.text, !viewModel.isEmpty {
+#if !os(macOS)
             RichTextView(viewModel: viewModel)
+#endif
         } else {
             PlaceholderView(imageName: "nosign", title: "Empty")
         }

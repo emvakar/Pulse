@@ -1,16 +1,16 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
-#if os(iOS) || os(macOS) || os(watchOS)
+#if os(iOS) || os(macOS) || os(watchOS) || os(visionOS)
 
 import SwiftUI
 import CoreData
 import Pulse
 import Combine
 
-@available(iOS 15, macOS 13, watchOS 9, *)
-struct ShareStoreView: View {
+@available(iOS 16, macOS 13, watchOS 9, visionOS 1, *)
+package struct ShareStoreView: View {
     /// Preselected sessions.
     var sessions: Set<UUID> = []
     var onDismiss: () -> Void
@@ -21,7 +21,12 @@ struct ShareStoreView: View {
 
     @Environment(\.store) private var store: LoggerStore
 
-    var body: some View {
+    package init(sessions: Set<UUID> = [], onDismiss: @escaping () -> Void) {
+        self.sessions = sessions
+        self.onDismiss = onDismiss
+    }
+
+    package var body: some View {
         content
             .onAppear {
                 if !sessions.isEmpty {
@@ -35,7 +40,7 @@ struct ShareStoreView: View {
 
     @ViewBuilder
     private var content: some View {
-#if os(iOS) || os(watchOS)
+#if os(iOS) || os(watchOS) || os(visionOS)
         Form {
             sectionSharingOptions
             sectionShare
@@ -54,7 +59,7 @@ struct ShareStoreView: View {
             }
 #endif
         }
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
         .sheet(item: $viewModel.shareItems) {
             ShareView($0).onCompletion(onDismiss)
         }
@@ -79,7 +84,7 @@ struct ShareStoreView: View {
     private var sectionSharingOptions: some View {
         Section {
             ConsoleSessionsPickerView(selection: $viewModel.sessions)
-#if os(iOS)
+#if os(iOS) || os(visionOS)
             NavigationLink(destination: destinationLogLevels) {
                 InfoRow(title: "Log Levels", details: viewModel.selectedLevelsTitle)
             }
@@ -95,12 +100,9 @@ struct ShareStoreView: View {
         }
         Section {
             Picker("Output", selection: $viewModel.output) {
-                Text("Pulse").tag(ShareStoreOutput.store)
-                Text("Plain Text").tag(ShareStoreOutput.text)
-                Text("HTML").tag(ShareStoreOutput.html)
-                Text("HAR").tag(ShareStoreOutput.har)
-                Divider()
-                Text("Pulse (Package)").tag(ShareStoreOutput.package)
+                ForEach(viewModel.shareStoreOutputs, id: \.rawValue) { shareOutput in
+                    Text(shareOutput.interfaceTitle).tag(shareOutput)
+                }
             }
 #if os(macOS)
             .labelsHidden()
@@ -114,11 +116,11 @@ struct ShareStoreView: View {
         }.inlineNavigationTitle("Log Levels")
     }
 
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
     private var sectionShare: some View {
         Section {
             Button(action: { viewModel.buttonSharedTapped() }) {
-#if os(iOS)
+#if os(iOS) || os(visionOS)
                 HStack {
                     Spacer()
                     Text(viewModel.isPreparingForSharing ? "Exporting..." : "Share")
@@ -131,7 +133,7 @@ struct ShareStoreView: View {
             }
             .disabled(viewModel.isPreparingForSharing)
             .foregroundColor(.white)
-#if os(iOS)
+#if os(iOS) || os(visionOS)
             .listRowBackground(viewModel.isPreparingForSharing ? Color.accentColor.opacity(0.33) : Color.accentColor)
 #endif
         }
@@ -158,17 +160,15 @@ struct ShareStoreView: View {
 }
 
 #if DEBUG
-@available(iOS 15, macOS 13, watchOS 9, *)
+@available(iOS 16, macOS 13, watchOS 9, visionOS 1, *)
 struct ShareStoreView_Previews: PreviewProvider {
     static var previews: some View {
-#if os(iOS)
+#if os(iOS) || os(visionOS)
         NavigationView {
             ShareStoreView(onDismiss: {})
         }
-        .injecting(.init(store: .mock))
 #else
         ShareStoreView(onDismiss: {})
-            .injecting(.init(store: .mock))
             .frame(width: 240).fixedSize()
 #endif
     }

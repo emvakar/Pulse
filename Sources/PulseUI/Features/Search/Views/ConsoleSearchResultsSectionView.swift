@@ -1,83 +1,45 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
-
-#if os(iOS) || os(macOS)
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import SwiftUI
 import Pulse
 import CoreData
 import Combine
 
-@available(iOS 15, macOS 13, *)
+#if os(iOS) || os(visionOS)
+
+@available(iOS 16, visionOS 1, macOS 13, *)
 struct ConsoleSearchResultView: View {
     let viewModel: ConsoleSearchResultViewModel
-    var limit: Int = 4
     var isSeparatorNeeded = false
+
+    @ScaledMetric(relativeTo: .body) private var fontMultiplier = 1.0
+    @ObservedObject private var settings: UserSettings = .shared
+    @EnvironmentObject private var environment: ConsoleEnvironment
 
     var body: some View {
         ConsoleEntityCell(entity: viewModel.entity)
-#if os(macOS)
-            .tag(ConsoleSelectedItem.entity(viewModel.entity.objectID))
-#endif
-        let occurrences = Array(viewModel.occurrences).filter { $0.scope.isDisplayedInResults }
-        ForEach(occurrences.prefix(limit)) { item in
-#if os(macOS)
-            makeCell(for: item)
-                .tag(ConsoleSelectedItem.occurrence(viewModel.entity.objectID, item))
-#else
-            NavigationLink(destination: ConsoleSearchResultView.makeDestination(for: item, entity: viewModel.entity)) {
+        ForEach(makeMatches(from: viewModel.occurrences)) { item in
+            NavigationLink(destination: ConsoleSearchResultView.makeDestination(for: item.occurrence, entity: viewModel.entity).injecting(environment)) {
                 makeCell(for: item)
             }
-#endif
         }
-        if occurrences.count > limit {
-            let total = occurrences.count > ConsoleSearchMatch.limit ? "\(ConsoleSearchMatch.limit)+" : "\(occurrences.count)"
-#if os(macOS)
-            Text("Total Results: \(total)")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .padding(.leading, 16)
-                .padding(.bottom, 8)
-#else
-            NavigationLink(destination: ConsoleSearchResultDetailsView(viewModel: viewModel)) {
-                Text("Total Results: ")
-                    .font(ConsoleConstants.fontBody) +
-                Text(total)
-                    .font(ConsoleConstants.fontBody)
-                    .foregroundColor(.secondary)
-            }
-#endif
-        }
-#if os(iOS)
         if isSeparatorNeeded {
             PlainListGroupSeparator()
         }
-#endif
     }
 
     @ViewBuilder
-    private func makeCell(for occurrence: ConsoleSearchOccurrence) -> some View {
-        let contents = VStack(alignment: .leading, spacing: 4) {
-            Text(occurrence.preview)
-                .lineLimit(3)
-            Text(occurrence.scope.title + " (\(occurrence.line):\(occurrence.range.lowerBound + 1))")
-                .font(ConsoleConstants.fontInfo)
+    private func makeCell(for item: ConsoleSearchResultsItem) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(item.title)
+                .font(detailsFont)
                 .foregroundColor(.secondary)
-        }
-#if os(macOS)
-            .listRowSeparator(.visible)
-            .padding(.leading, 16)
-#endif
-        if #unavailable(iOS 16) {
-            contents.padding(.vertical, 4)
-        } else {
-#if os(macOS)
-            contents.padding(.vertical, 4)
-#else
-            contents
-#endif
-        }
+            Text(item.occurrence.preview)
+                .font(contentFont)
+                .lineLimit(3)
+        }.padding(.vertical, 4)
     }
 
     @ViewBuilder
@@ -96,69 +58,86 @@ struct ConsoleSearchResultView: View {
         }
     }
 
-#if os(iOS)
     @ViewBuilder
     private static func _makeDestination(for occurrence: ConsoleSearchOccurrence, task: NetworkTaskEntity) -> some View {
         switch occurrence.scope {
-        case .originalRequestHeaders:
-            makeHeadersDetails(title: "Request Headers", headers: task.originalRequest?.headers)
-        case .currentRequestHeaders:
-            makeHeadersDetails(title: "Request Headers", headers: task.currentRequest?.headers)
+        case .originalRequestHeaders, .currentRequestHeaders, .responseHeaders:
+            EmptyView() // Reserved
         case .requestBody:
             NetworkInspectorRequestBodyView(viewModel: .init(task: task))
-        case .responseHeaders:
-            makeHeadersDetails(title: "Response Headers", headers: task.response?.headers)
         case .responseBody:
             NetworkInspectorResponseBodyView(viewModel: .init(task: task))
         case .url, .message, .metadata:
             EmptyView()
         }
     }
-#else
-    @ViewBuilder
-    private static func _makeDestination(for occurrence: ConsoleSearchOccurrence, task: NetworkTaskEntity) -> some View {
-        switch occurrence.scope {
-        case .originalRequestHeaders:
-            NetworkInspectorView(task: task, tab: .headers)
-        case .currentRequestHeaders:
-            NetworkInspectorView(task: task, tab: .headers)
-        case .requestBody:
-            NetworkInspectorView(task: task, tab: .request)
-        case .responseHeaders:
-            NetworkInspectorView(task: task, tab: .headers)
-        case .responseBody:
-            NetworkInspectorView(task: task, tab: .response)
-        case .url, .message, .metadata:
-            EmptyView()
-        }
+
+    private var contentFont: Font {
+        let baseSize = CGFloat(settings.listDisplayOptions.content.fontSize)
+        return Font.system(size: baseSize * fontMultiplier)
     }
+
+    private var detailsFont: Font {
+        let baseSize = CGFloat(settings.listDisplayOptions.header.fontSize)
+        return Font.system(size: baseSize * fontMultiplier).monospacedDigit()
+    }
+}
+
+@available(iOS 16, visionOS 1, *)
+private func makeMatches(from occurrences: [ConsoleSearchOccurrence]) -> [ConsoleSearchResultsItem] {
+    var items: [ConsoleSearchResultsItem] = []
+    var index = 0
+    while index < occurrences.endIndex {
+        let occurrence = occurrences[index]
+
+        if !occurrence.scope.isDisplayedInResults {
+            index += 1
+            continue // Skip
+        }
+
+        // Count all occurences in this scope and skip to the end
+        var counter = 1 // Already found one
+        while (index+1) < occurrences.endIndex && occurrences[index+1].scope == occurrence.scope  {
+            counter += 1
+            index += 1 // Consume next
+        }
+
+        let item = ConsoleSearchResultsItem(totalCount: counter, occurrence: occurrence)
+        items.append(item)
+        index += 1
+    }
+    return items
+}
+
+@available(iOS 16, visionOS 1, *)
+struct ConsoleSearchResultsItem: Identifiable {
+    var id: ConsoleSearchOccurrence { occurrence }
+    let totalCount: Int
+    let occurrence: ConsoleSearchOccurrence
+
+    var title: String {
+        let suffix: String
+        if totalCount == 1 {
+            suffix = ""
+        } else if totalCount < ConsoleSearchMatch.limit {
+            suffix = " (\(totalCount) matches)"
+        } else {
+            // we know there is 6, showin
+            suffix = " (\(ConsoleSearchMatch.limit-1)+ matches)"
+        }
+        return "\(occurrence.scope.title)\(suffix)"
+    }
+}
+
 #endif
 
-    private static func makeHeadersDetails(title: String, headers: [String: String]?) -> some View {
-        NetworkDetailsView(title: title) {
-            KeyValueSectionViewModel.makeHeaders(title: title, headers: headers)
-        }
-    }
-}
+#if os(iOS) || os(visionOS) || os(macOS)
 
-@available(iOS 15, macOS 13, *)
-struct ConsoleSearchResultDetailsView: View {
-    let viewModel: ConsoleSearchResultViewModel
+@available(iOS 16, visionOS 1, *)
+package struct PlainListGroupSeparator: View {
+    package init() {}
 
-    var body: some View {
-        List {
-            ConsoleSearchResultView(viewModel: viewModel, limit: Int.max)
-        }
-        .listStyle(.plain)
-        .environment(\.defaultMinListRowHeight, 0)
-        .inlineNavigationTitle("Search Results")
-    }
-}
-
-#if os(iOS)
-@available(iOS 15, *)
-struct PlainListGroupSeparator: View {
-    var body: some View {
+    package var body: some View {
         Rectangle().foregroundColor(.clear) // DIY separator
             .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
             .listRowBackground(Color.separator.opacity(0.2))
@@ -166,20 +145,22 @@ struct PlainListGroupSeparator: View {
             .frame(height: 12)
     }
 }
-#endif
 
-@available(iOS 15, *)
-struct PlainListSectionHeader<Content: View>: View {
-    var title: String?
-    @ViewBuilder let content: () -> Content
+@available(iOS 16, macOS 13, visionOS 1, *)
+package struct PlainListSectionHeader<Content: View>: View {
+    package var title: String?
+    @ViewBuilder package let content: () -> Content
 
-    var body: some View {
+    package init(title: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.content = content
+    }
+
+    package var body: some View {
         contents
             .padding(.top, 8)
             .listRowBackground(Color.separator.opacity(0.2))
-#if os(iOS)
             .listRowSeparator(.hidden)
-#endif
     }
 
     @ViewBuilder
@@ -198,66 +179,10 @@ struct PlainListSectionHeader<Content: View>: View {
     }
 }
 
-@available(iOS 15, *)
+@available(iOS 16, macOS 13, visionOS 1, *)
 extension PlainListSectionHeader where Content == Text {
     init(title: String) {
         self.init(title: title, content: { Text(title) })
-    }
-}
-
-@available(iOS 15, *)
-struct PlainListExpandableSectionHeader<Destination: View>: View {
-    let title: String
-    let count: Int
-    @ViewBuilder let destination: () -> Destination
-    var isSeeAllHidden = false
-
-    var body: some View {
-        PlainListSectionHeader {
-            HStack(alignment: .bottom, spacing: 0) {
-                Text(title)
-                    .foregroundColor(.secondary)
-                    .font(.subheadline.weight(.medium))
-                +
-                Text(" (\(count))")
-                    .foregroundColor(.secondary.opacity(0.7))
-                    .font(.subheadline.weight(.medium).monospacedDigit())
-                if !isSeeAllHidden {
-                    Spacer()
-                    Text("See All")
-                        .foregroundColor(.accentColor)
-                        .font(.subheadline)
-                        .background(NavigationLink("", destination: destination).opacity(0))
-                }
-            }
-        }
-    }
-}
-
-@available(iOS 15, *)
-struct PlainListSeeAllView: View {
-    let count: Int
-
-    var body: some View {
-        (Text("See All").foregroundColor(.accentColor) +
-         Text("  (\(count))"))
-        .font(.subheadline)
-        .foregroundColor(.secondary)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-@available(iOS 15, *)
-struct PlainListSectionHeaderSeparator: View {
-    let title: String
-
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 0) {
-            Text(title)
-                .foregroundColor(.secondary)
-                .font(.subheadline.weight(.medium))
-            Spacer()
-        }
     }
 }
 

@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import Foundation
 
@@ -8,11 +8,11 @@ import Foundation
 import AppKit
 #endif
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 import PDFKit
 #endif
 
-#if os(iOS) || os(tvOS)
+#if os(iOS) || os(tvOS) || os(visionOS)
 import UIKit
 #endif
 
@@ -81,7 +81,7 @@ enum TextUtilities {
     }
 
     /// Renders the given attributed string as PDF
-#if os(iOS)
+#if os(iOS) || os(visionOS)
     static func pdf(from string: NSAttributedString) throws -> Data {
         let string = NSMutableAttributedString(attributedString: string)
         string.enumerateAttribute(.font, in: NSRange(location: 0, length: string.length)) { font, range, _ in
@@ -106,11 +106,18 @@ enum TextUtilities {
         let data = NSMutableData()
 
         UIGraphicsBeginPDFContextToData(data, paperRect, nil)
-        renderer.prepare(forDrawingPages: NSMakeRange(0, renderer.numberOfPages))
+        renderer.prepare(forDrawingPages: NSRange(location: 0, length: renderer.numberOfPages))
 
         let bounds = UIGraphicsGetPDFContextBounds()
-        for i in 0  ..< renderer.numberOfPages  {
+        for i in 0  ..< renderer.numberOfPages {
             UIGraphicsBeginPDFPage()
+            
+            if isDarkMode, let context = UIGraphicsGetCurrentContext() {
+                let backgroundColor = UIColor(red: 44/255.0, green: 42/255.0, blue: 40/255.0, alpha: 1.0)
+                context.setFillColor(backgroundColor.cgColor)
+                context.fill(bounds)
+            }
+            
             renderer.drawPage(at: i, in: bounds)
         }
         UIGraphicsEndPDFContext()
@@ -118,14 +125,14 @@ enum TextUtilities {
         return data as Data
     }
 #endif
-    
+
     static func har(from string: NSAttributedString) -> Data {
         string.string.data(using: .utf8) ?? Data()
     }
 }
 
 private var isDarkMode: Bool {
-#if os(iOS) || os(tvOS)
+#if os(iOS) || os(tvOS) || os(visionOS)
     return UIViewController().traitCollection.userInterfaceStyle == .dark
 #elseif os(watchOS)
     return true

@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 #if os(tvOS)
 
@@ -16,12 +16,15 @@ public struct SettingsView: View {
 
     public var body: some View {
         Form {
-            if store === RemoteLogger.shared.store {
+            if !UserSettings.shared.isRemoteLoggingHidden,
+                store === RemoteLogger.shared.store {
                 RemoteLoggerSettingsView(viewModel: .shared)
             }
             Section {
-                NavigationLink(destination: StoreDetailsView(source: .store(store))) {
-                    Text("Store Info")
+                if #available(tvOS 16, *) {
+                    NavigationLink(destination: StoreDetailsView(source: .store(store))) {
+                        Text("Store Info")
+                    }
                 }
                 if !store.options.contains(.readonly) {
                     Button(role: .destructive, action: { store.removeAll() }) {

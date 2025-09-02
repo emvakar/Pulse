@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020–2023 Alexander Grebenyuk (github.com/kean).
+// Copyright (c) 2020-2024 Alexander Grebenyuk (github.com/kean).
 
 import Foundation
 import Network
@@ -10,8 +10,7 @@ import OSLog
 
 /// Connects to the remote server and sends logs remotely. In the current version,
 /// a server is a Pulse Pro app for macOS).
-///
-/// - warning: Has to be used from the main thread.
+@MainActor
 public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegate {
     /// The store that the logger was initialized with.
     public private(set) var store: LoggerStore?
@@ -46,9 +45,13 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
 
     @Published
     public private(set) var connectionState: ConnectionState = .disconnected {
-        didSet { os_log("Set public connection state %{public}@", log: log, "\(oldValue) → \(connectionState)") }
-
+        didSet {
+            os_log("Set public connection state %{public}@", log: log, "\(oldValue) → \(connectionState)")
+            RemoteLogger.latestConnectionState.value = connectionState
+        }
     }
+
+    nonisolated static let latestConnectionState = Mutex<ConnectionState>(.disconnected)
 
     // Browsing
     private var browser: NWBrowser?
@@ -73,13 +76,12 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
     // Private
     private var isInitialized = false
     private let keychain = Keychain(service: "com.github.kean.pulse")
-    private let connectionQueue = DispatchQueue(label: "com.github.kean.pulse.remote-logger")
     private let log: OSLog
 
-    public enum ConnectionState {
+    @frozen public enum ConnectionState {
         case disconnected, connecting, connected
     }
-    
+
     public var isOpenOnMacSupported: Bool {
         guard let serverVersion = serverVersion else { return false }
         return serverVersion >= Version(4, 0, 0)
@@ -102,37 +104,52 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
         }
     }
 
+    /// If enabled, the logger will automatically connect to the first available
+    /// Pulse Mac app and remember it for the next runs.
+    ///
+    /// - warning: Never use this option in production as, since discovery
+    /// requires Bluetooth, it will trigger a prompt on the first app run.
+    public var isAutomaticConnectionEnabled = false {
+        didSet {
+            guard isAutomaticConnectionEnabled else { return }
+            enable()
+        }
+    }
+
     public static let shared = RemoteLogger()
 
     /// - parameter store: The store to be synced with the server. By default,
     /// ``LoggerStore/shared``. Only one store can be synced at at time.
     public func initialize(store: LoggerStore = .shared) {
-        assert(Thread.isMainThread)
         os_log("Initialize with store at %{private}@", log: log, "\(store.storeURL)")
 
         guard self.store !== store else {
             return
         }
+
         self.store = store
         if isInitialized {
             cancel()
         }
         isInitialized = true
-
         if isEnabled {
             startBrowser()
         }
 
-        cancellable = store.events.receive(on: connectionQueue).sink { [weak self] in
+        cancellable = store.events.receive(on: DispatchQueue.main).sink { [weak self] in
             self?.didReceive(event: $0)
         }
 
         // The buffer is used to cover the time between the app launch and the
         // initial (automatic) connection to the server.
-        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(3)) { [weak self, log] in
-            self?.buffer = nil
-            os_log("Did clear buffer", log: log)
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(3)) { [weak self] in
+            self?.clearBuffer()
         }
+    }
+
+    private func clearBuffer() {
+        buffer = nil
+        os_log("Did clear buffer", log: log)
     }
 
     private init() {
@@ -155,7 +172,6 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
     /// Enables remote logging. The logger will start searching for available
     /// servers.
     public func enable() {
-        assert(Thread.isMainThread)
         guard !isEnabled else { return }
         isEnabled = true
 
@@ -167,7 +183,6 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
 
     /// Disables remote logging and disconnects from the server.
     public func disable() {
-        assert(Thread.isMainThread)
         guard isEnabled else { return }
         isEnabled = false
 
@@ -182,7 +197,6 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
     }
 
     private func cancel() {
-        assert(Thread.isMainThread)
         os_log("Will cancel", log: log)
         defer { os_log("Did cancel", log: log) }
 
@@ -200,11 +214,15 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
         parameters.includePeerToPeer = true
 
         let browser = NWBrowser(for: .bonjourWithTXTRecord(type: RemoteLogger.serviceType, domain: nil), using: parameters)
-        browser.stateUpdateHandler = { [weak self] in
-            self?.browserDidUpdateState($0)
+        browser.stateUpdateHandler = { [weak self] state in
+            MainActor.assumeIsolated {
+                self?.browserDidUpdateState(state)
+            }
         }
         browser.browseResultsChangedHandler = { [weak self] results, _ in
-            self?.browserDidUpdateResults(results)
+            MainActor.assumeIsolated {
+                self?.browserDidUpdateResults(results)
+            }
         }
         browser.start(queue: .main)
 
@@ -248,7 +266,7 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
 
         // Automatically retry until the user cancels
         DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(5)) { [weak self] in
-            guard let self = self, self.isEnabled else { return }
+            guard let self, self.isEnabled else { return }
             self.stopBrowser()
             self.startBrowser()
         }
@@ -264,6 +282,9 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
 
         guard let name = self.knownServers.first(where: { servers[$0] != nil }),
               let server = servers[name] else {
+            if isAutomaticConnectionEnabled, let server = self.servers.first {
+                connect(to: server)
+            }
             return
         }
 
@@ -338,7 +359,7 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
     }
 
     private func saveServer(named name: String) {
-        os_log("Save server  %{private}@", log: log, name)
+        os_log("Save server %{private}@", log: log, name)
         knownServers.removeAll(where: { $0 == name })
         knownServers.append(name)
         saveKnownServers()
@@ -363,12 +384,12 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
         self.connectionState = .connecting
         self.connection = connection
 
-        connection.start(on: DispatchQueue.main)
+        connection.start()
     }
 
     // MARK: RemoteLoggerConnectionDelegate
 
-    func connection(_ connection: Connection, didChangeState newState: NWConnection.State) {
+    package func connection(_ connection: Connection, didChangeState newState: NWConnection.State) {
         os_log("Connection did change state to %{public}@", log: log, "\(newState)")
 
         switch newState {
@@ -387,7 +408,7 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
         }
     }
 
-    func connection(_ connection: Connection, didReceiveEvent event: Connection.Event) {
+    package func connection(_ connection: Connection, didReceiveEvent event: Connection.Event) {
         switch event {
         case .packet(let packet):
             do {
@@ -403,7 +424,7 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
         }
     }
 
-    // MARK:
+    // MARK: 
 
     /// Returns passcode for the sever with the given name.
     public func getPasscode(forServerNamed name: String) -> String? {
@@ -430,8 +451,8 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
         let body = PacketClientHello(
             version: Version.currentProtocolVersion.description,
             deviceId: getDeviceId() ?? getFallbackDeviceId(),
-            deviceInfo: .make(),
-            appInfo: .make(),
+            deviceInfo: .current,
+            appInfo: .current,
             session: store?.session
         )
         connection?.send(code: .clientHello, entity: body)
@@ -465,7 +486,9 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
             isLoggingPaused = true
         case .resume:
             isLoggingPaused = false
-            buffer?.forEach(send)
+            for event in (buffer ?? []) {
+                send(event: event)
+            }
         case .ping:
             scheduleAutomaticDisconnect()
         case .message:
@@ -475,7 +498,7 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
             switch message.path {
             case .updateMocks:
                 let mocks = try JSONDecoder().decode([URLSessionMock].self, from: message.data)
-                URLSessionMockManager.shared.update(mocks)
+                NetworkDebugger.shared.update(mocks)
             case .getMockedResponse, .openMessageDetails, .openTaskDetails:
                 break // Server specific (should never happen)
             }
@@ -651,17 +674,16 @@ public final class RemoteLogger: ObservableObject, RemoteLoggerConnectionDelegat
             }
         }
     }
-    
+
     // MARK: Details
-    
+
     public func showDetails(for message: LoggerMessageEntity) {
         connection?.sendMessage(path: .openMessageDetails, entity: LoggerStore.Event.MessageCreated(message))
     }
-    
+
     public func showDetails(for task: NetworkTaskEntity) {
         connection?.sendMessage(path: .openTaskDetails, entity: LoggerStore.Event.NetworkTaskCompleted(task))
     }
-
 
     // MARK: Persistence
 
@@ -722,5 +744,5 @@ extension RemoteLogger.ConnectionState {
 }
 
 extension RemoteLogger {
-    public static let serviceType = "_pulse._tcp"
+    package static let serviceType = "_pulse._tcp"
 }
