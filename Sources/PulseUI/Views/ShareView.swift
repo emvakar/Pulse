@@ -7,29 +7,29 @@ import SwiftUI
 #if os(iOS) || os(visionOS)
 import UIKit
 
-package struct ShareView: UIViewControllerRepresentable {
+public struct ShareView: UIViewControllerRepresentable {
     var activityItems: [Any]
     var applicationActivities: [UIActivity]?
     private let cleanup: () -> Void
     private var completion: (() -> Void)?
 
-    package init(activityItems: [Any]) {
+    public init(activityItems: [Any]) {
         self.activityItems = activityItems
         self.cleanup = {}
     }
 
-    package init(_ items: ShareItems) {
+    public init(_ items: ShareItems) {
         self.activityItems = items.items
         self.cleanup = items.cleanup
     }
 
-    package func onCompletion(_ completion: @escaping () -> Void) -> Self {
+    public func onCompletion(_ completion: @escaping () -> Void) -> Self {
         var copy = self
         copy.completion = completion
         return copy
     }
 
-    package func makeUIViewController(context: UIViewControllerRepresentableContext<ShareView>) -> UIActivityViewController {
+    public func makeUIViewController(context: UIViewControllerRepresentableContext<ShareView>) -> UIActivityViewController {
         let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
         controller.completionWithItemsHandler = { _, _, _, _ in
             cleanup()
@@ -37,8 +37,16 @@ package struct ShareView: UIViewControllerRepresentable {
         }
         return controller
     }
+    
+    public func presentOnViewController(_ vc: UIViewController) {
+        let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+        vc.present(controller, animated: true) {
+            cleanup()
+        }
+    }
 
-    package func updateUIViewController(_ uiViewController: UIActivityViewController, context: UIViewControllerRepresentableContext<ShareView>) {
+
+    public func updateUIViewController(_ uiViewController: UIActivityViewController, context: UIViewControllerRepresentableContext<ShareView>) {
     }
 }
 #endif
